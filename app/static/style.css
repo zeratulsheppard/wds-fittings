@@ -309,10 +309,11 @@ code {
   justify-content: flex-end;
   gap: 6px;
 }
-.row-label svg {
-  width: 14px;
-  height: 14px;
+.row-label .slot-icon {
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
+  image-rendering: pixelated;
 }
 .row-cells {
   display: flex;

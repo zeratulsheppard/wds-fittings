@@ -29,21 +29,7 @@
 {%- endmacro -%}
 
 {%- macro slot_icon(key) -%}
-  {%- if key == 'high' -%}
-    <svg viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,2.5 14,13 2,13" fill="currentColor"/></svg>
-  {%- elif key == 'med' -%}
-    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="6" width="12" height="4" rx="1" fill="currentColor"/></svg>
-  {%- elif key == 'low' -%}
-    <svg viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,13.5 2,3 14,3" fill="currentColor"/></svg>
-  {%- elif key == 'rig' -%}
-    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2 L14 5 L10 9 L11 10 L9 12 L4 7 L6 5 L7 6 L11 2 Z" fill="currentColor"/></svg>
-  {%- elif key == 'sub' -%}
-    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="6" y="6" width="4" height="4" fill="currentColor"/></svg>
-  {%- elif key == 'drone' -%}
-    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 L14 8 L8 14 L2 8 Z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/></svg>
-  {%- elif key == 'cargo' -%}
-    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="4" width="12" height="10" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.5"/></svg>
-  {%- endif -%}
+  <img class="slot-icon" src="/static/slots/{{ key }}.png" alt="" aria-hidden="true">
 {%- endmacro -%}
 
 {%- macro fit_row(label, key, items, count) -%}
