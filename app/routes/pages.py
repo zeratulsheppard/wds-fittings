@@ -159,14 +159,33 @@ async def index(
 
 @router.get("/import", response_class=HTMLResponse)
 async def import_page(request: Request, user: User = Depends(require_user)):
-    return templates.TemplateResponse(request, "import.html", {"user": user, "error": None})
+    return templates.TemplateResponse(
+        request, "import.html",
+        {
+            "user": user,
+            "categories": _existing_categories(),
+            "form": {"category": "", "tags_str": ""},
+            "error": None,
+        },
+    )
 
 
-def _store_fit(fit: Fit, owner_id: int, owner_name: str, category: str = "") -> int:
+def _split_tags_input(raw: str) -> List[str]:
+    return [p for p in re.split(r"[,\n]+", raw or "") if p.strip()]
+
+
+def _store_fit(
+    fit: Fit,
+    owner_id: int,
+    owner_name: str,
+    category: str = "",
+    tags: Optional[List[str]] = None,
+) -> int:
     ship = sde.get_type(fit.ship_type_id)
     group_id = ship.group_id if ship else 0
     group_name = ship.group_name if ship else ""
     now = int(time.time())
+    tag_json = json.dumps(_normalise_tag_list(tags or []))
     with db.connect() as conn:
         cur = conn.execute(
             """
@@ -175,7 +194,7 @@ def _store_fit(fit: Fit, owner_id: int, owner_name: str, category: str = "") -> 
                  ship_group_id, ship_group_name, category,
                  fit_json, owner_id, owner_name, tags,
                  created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 fit.name,
@@ -188,6 +207,7 @@ def _store_fit(fit: Fit, owner_id: int, owner_name: str, category: str = "") -> 
                 json.dumps(fit.to_dict()),
                 owner_id,
                 owner_name,
+                tag_json,
                 now,
                 now,
             ),
@@ -202,24 +222,44 @@ async def import_submit(
     fmt: str = Form(...),
     text: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
+    category: str = Form(""),
+    tags: str = Form(""),
 ):
+    category = _normalise_category(category)
+    tag_list = _split_tags_input(tags)
+
+    def store(f: Fit) -> int:
+        return _store_fit(f, user.character_id, user.character_name, category, tag_list)
+
+    def render_error(msg: str, status: int = 400):
+        return templates.TemplateResponse(
+            request, "import.html",
+            {
+                "user": user,
+                "categories": _existing_categories(),
+                "form": {"category": category, "tags_str": tags},
+                "error": msg,
+            },
+            status_code=status,
+        )
+
     try:
         if fmt == "eft":
             if not text:
                 raise ParseError("Paste an EFT fit block")
-            fit_id = _store_fit(parse_eft(text), user.character_id, user.character_name)
+            fit_id = store(parse_eft(text))
             return RedirectResponse(f"/fit/{fit_id}", status_code=303)
 
         if fmt == "dna":
             if not text:
                 raise ParseError("Paste a DNA string or <url=fitting:...> link")
-            fit_id = _store_fit(parse_dna(text), user.character_id, user.character_name)
+            fit_id = store(parse_dna(text))
             return RedirectResponse(f"/fit/{fit_id}", status_code=303)
 
         if fmt == "killmail":
             if not text:
                 raise ParseError("Paste killmail JSON")
-            fit_id = _store_fit(parse_killmail(text), user.character_id, user.character_name)
+            fit_id = store(parse_killmail(text))
             return RedirectResponse(f"/fit/{fit_id}", status_code=303)
 
         if fmt == "xml":
@@ -229,7 +269,7 @@ async def import_submit(
             fits = parse_pyfa_xml(payload)
             first_id = None
             for f in fits:
-                fid = _store_fit(f, user.character_id, user.character_name)
+                fid = store(f)
                 first_id = first_id or fid
             if first_id is None:
                 raise ParseError("XML contained no fittings")
@@ -240,11 +280,7 @@ async def import_submit(
         raise HTTPException(400, f"Unknown format: {fmt}")
 
     except ParseError as exc:
-        return templates.TemplateResponse(
-            request, "import.html",
-            {"user": user, "error": str(exc)},
-            status_code=400,
-        )
+        return render_error(str(exc))
 
 
 # --- View / tag / delete ----------------------------------------------------

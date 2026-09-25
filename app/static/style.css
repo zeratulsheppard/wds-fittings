@@ -184,6 +184,26 @@ main {
   font-size: 13px;
 }
 
+.import-basics { margin-bottom: 1rem; padding: 1rem 1.1rem; }
+.import-basics > p { margin: 0 0 .8rem; }
+.import-basics-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 700px) { .import-basics-row { grid-template-columns: 1fr; } }
+.import-basics-row .edit-label input {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  padding: .45rem .7rem;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+}
+.import-basics-row .edit-label input:focus { outline: none; border-color: var(--orange); }
+
 .import-tabs { display: flex; gap: 4px; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .import-tabs .tab {
   background: transparent;

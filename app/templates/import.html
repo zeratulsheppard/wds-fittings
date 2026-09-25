@@ -6,9 +6,26 @@
   <a href="/" class="back-link">← Back to library</a>
 </div>
 
-{% if error %}
-<div class="error-banner">{{ error }}</div>
-{% endif %}
+{% if error %}<div class="error-banner">{{ error }}</div>{% endif %}
+
+<div class="card import-basics">
+  <p class="muted">Category and tags apply to every fit imported below. For pyfa XML files
+  with multiple fittings, every fit in the file inherits these values.</p>
+  <div class="import-basics-row">
+    <label class="edit-label">
+      <span>Category <em class="muted">(optional)</em></span>
+      <input type="text" id="import-category" value="{{ form.category }}" maxlength="48"
+             list="category-suggestions" placeholder="e.g. Bomber, Ratting Tengu, Hauler">
+      <datalist id="category-suggestions">
+        {% for c in categories %}<option value="{{ c }}">{% endfor %}
+      </datalist>
+    </label>
+    <label class="edit-label">
+      <span>Tags <em class="muted">(optional — comma separated, uppercase alnum)</em></span>
+      <input type="text" id="import-tags" value="{{ form.tags_str }}" placeholder="PVP, BUDGET, BOMBER">
+    </label>
+  </div>
+</div>
 
 <div class="import-tabs" id="tabs">
   <button class="tab active" data-tab="eft">EFT text</button>
@@ -17,9 +34,15 @@
   <button class="tab" data-tab="killmail">Killmail JSON</button>
 </div>
 
+{% macro shared_hidden() -%}
+<input type="hidden" name="category" class="js-category" value="{{ form.category }}">
+<input type="hidden" name="tags" class="js-tags" value="{{ form.tags_str }}">
+{%- endmacro %}
+
 <div class="import-panel card" data-panel="eft">
   <form method="POST" action="/import">
     <input type="hidden" name="fmt" value="eft">
+    {{ shared_hidden() }}
     <p class="muted">Paste an EFT block starting with <code>[Ship, Name]</code>.</p>
     <textarea name="text" rows="16" placeholder="[Raven, My Fit]&#10;Damage Control II&#10;...&#10;"></textarea>
     <div class="form-actions"><button type="submit" class="btn-primary">Import EFT</button></div>
@@ -29,6 +52,7 @@
 <div class="import-panel card hidden" data-panel="dna">
   <form method="POST" action="/import">
     <input type="hidden" name="fmt" value="dna">
+    {{ shared_hidden() }}
     <p class="muted">Paste a raw DNA string, <code>fitting:...</code>, or the full <code>&lt;url=fitting:...&gt;Name&lt;/url&gt;</code> chat link.</p>
     <textarea name="text" rows="6" placeholder="638:2048;1:519;5:3436;1::"></textarea>
     <div class="form-actions"><button type="submit" class="btn-primary">Import DNA</button></div>
@@ -38,7 +62,8 @@
 <div class="import-panel card hidden" data-panel="xml">
   <form method="POST" action="/import" enctype="multipart/form-data">
     <input type="hidden" name="fmt" value="xml">
-    <p class="muted">Upload a pyfa XML export. The file may contain many fittings — all are imported.</p>
+    {{ shared_hidden() }}
+    <p class="muted">Upload a pyfa XML export. Every fitting in the file is imported and gets the same category/tags.</p>
     <input type="file" name="file" accept=".xml" required>
     <div class="form-actions"><button type="submit" class="btn-primary">Import XML</button></div>
   </form>
@@ -47,6 +72,7 @@
 <div class="import-panel card hidden" data-panel="killmail">
   <form method="POST" action="/import">
     <input type="hidden" name="fmt" value="killmail">
+    {{ shared_hidden() }}
     <p class="muted">Paste an ESI killmail JSON body. zKillboard wrapper (<code>{"killmail":...}</code>) is accepted.</p>
     <textarea name="text" rows="14" placeholder='{"killmail_id":..., "victim":{"ship_type_id":..., "items":[...]}}'></textarea>
     <div class="form-actions"><button type="submit" class="btn-primary">Import killmail</button></div>
@@ -61,5 +87,16 @@
     t.classList.add('active');
     panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== t.dataset.tab));
   }));
+
+  // Mirror the shared category/tags into every form's hidden inputs before submit.
+  const catEl  = document.getElementById('import-category');
+  const tagsEl = document.getElementById('import-tags');
+  function sync() {
+    document.querySelectorAll('.js-category').forEach(el => el.value = catEl.value);
+    document.querySelectorAll('.js-tags').forEach(el => el.value = tagsEl.value);
+  }
+  catEl.addEventListener('input', sync);
+  tagsEl.addEventListener('input', sync);
+  document.querySelectorAll('.import-panel form').forEach(f => f.addEventListener('submit', sync));
 </script>
 {% endblock %}
