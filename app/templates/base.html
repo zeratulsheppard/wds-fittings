@@ -38,5 +38,25 @@
   <main>
     {% block content %}{% endblock %}
   </main>
+  <footer class="app-footer">
+    {% set sde_ts = request.state.sde_mtime %}
+    {% if sde_ts %}
+    <span class="muted">SDE snapshot:
+      <time datetime="{{ sde_ts }}" id="sde-timestamp">{{ sde_ts }}</time>
+    </span>
+    {% endif %}
+    <script>
+      (function () {
+        const el = document.getElementById('sde-timestamp');
+        if (!el) return;
+        const ts = parseInt(el.getAttribute('datetime'), 10) * 1000;
+        if (!ts) return;
+        const d = new Date(ts);
+        el.textContent = d.toISOString().slice(0, 10);
+        const days = Math.floor((Date.now() - ts) / 86400000);
+        el.title = `${d.toISOString()} — ${days} day${days === 1 ? '' : 's'} old`;
+      })();
+    </script>
+  </footer>
 </body>
 </html>

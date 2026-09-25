@@ -16,9 +16,17 @@ except OSError:
     _CSS_MTIME = 0
 
 
+def _sde_mtime() -> int:
+    try:
+        return int(config.SDE_SQLITE_PATH.stat().st_mtime)
+    except OSError:
+        return 0
+
+
 @app.middleware("http")
-async def inject_static_version(request: Request, call_next):
+async def inject_globals(request: Request, call_next):
     request.state.static_version = str(_CSS_MTIME)
+    request.state.sde_mtime = _sde_mtime()
     return await call_next(request)
 
 if not config.SESSION_SECRET:

@@ -17,7 +17,15 @@ class User:
 
     @property
     def is_fitting_manager(self) -> bool:
-        return "Fitting_Manager" in self.roles
+        """True for the Fitting_Manager corp role OR the 'Fitting Manager' title."""
+        if "Fitting_Manager" in self.roles:
+            return True
+        return any(t.lower() == "fitting manager" for t in self.titles)
+
+    @property
+    def can_manage_fits(self) -> bool:
+        """Directors and Fitting Managers can edit/delete any fit."""
+        return self.is_director or self.is_fitting_manager
 
 
 def _split_csv(value: str) -> List[str]:

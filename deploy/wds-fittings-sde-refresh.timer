@@ -1,0 +1,13 @@
+[Unit]
+Description=Weekly Fuzzwork SDE refresh for wds-fittings
+
+[Timer]
+# Every Wednesday at 07:15 UTC — CCP patches Tuesday, Fuzzwork typically
+# rebuilds within a few hours. Persistent so a downed server catches up.
+OnCalendar=Wed 07:15:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=wds-fittings-sde-refresh.service
+
+[Install]
+WantedBy=timers.target

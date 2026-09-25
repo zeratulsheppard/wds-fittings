@@ -1,0 +1,20 @@
+[Unit]
+Description=Refresh Fuzzwork SDE for wds-fittings (downloads only if upstream is newer)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/wds-fittings
+EnvironmentFile=/root/secrets/wds-fittings.env
+# Refresh returns 0 on success (updated), 2 on already-up-to-date, 1 on error.
+# Only restart the app when a fresh SDE was downloaded — this invalidates the
+# app's SQLite connection + LRU caches so lookups pick up the new file.
+ExecStart=/bin/bash -c '\
+  /opt/wds-fittings/.venv/bin/python -m app.sde.refresh ; \
+  rc=$? ; \
+  if [ $rc -eq 0 ]; then systemctl restart wds-fittings.service ; \
+  elif [ $rc -eq 2 ]; then exit 0 ; \
+  else exit $rc ; fi'
+StandardOutput=journal
+StandardError=journal

@@ -227,7 +227,7 @@ async def fit_view(fit_id: int, request: Request, user: User = Depends(require_u
 
     fit_data = json.loads(row["fit_json"])
     slot_layout = sde.ship_slot_layout(row["ship_type_id"])
-    can_edit = user.character_id == row["owner_id"] or user.is_director
+    can_edit = user.character_id == row["owner_id"] or user.can_manage_fits
     tags = db.load_tags(row["tags"])
 
     return templates.TemplateResponse(
@@ -248,7 +248,7 @@ async def fit_set_tags(fit_id: int, request: Request, user: User = Depends(requi
     row = _load_fit_row(fit_id)
     if row is None:
         raise HTTPException(404, "Fit not found")
-    if row["owner_id"] != user.character_id and not user.is_director:
+    if row["owner_id"] != user.character_id and not user.can_manage_fits:
         raise HTTPException(403, "Not your fit")
 
     payload = await request.json()
@@ -266,7 +266,7 @@ async def fit_set_tags(fit_id: int, request: Request, user: User = Depends(requi
 
 
 def _require_edit(row, user: User) -> None:
-    if row["owner_id"] != user.character_id and not user.is_director:
+    if row["owner_id"] != user.character_id and not user.can_manage_fits:
         raise HTTPException(403, "Not your fit")
 
 
@@ -387,7 +387,7 @@ async def fit_delete(fit_id: int, user: User = Depends(require_user)):
     row = _load_fit_row(fit_id)
     if row is None:
         raise HTTPException(404, "Fit not found")
-    if row["owner_id"] != user.character_id and not user.is_director:
+    if row["owner_id"] != user.character_id and not user.can_manage_fits:
         raise HTTPException(403, "Not your fit")
     with db.connect() as conn:
         conn.execute("DELETE FROM fittings WHERE id = ?", (fit_id,))
