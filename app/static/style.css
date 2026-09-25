@@ -258,13 +258,9 @@ code {
 
 .fit-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 280px;
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 1.2rem;
   align-items: start;
-}
-@media (max-width: 1200px) {
-  .fit-layout { grid-template-columns: 280px minmax(0, 1fr); }
-  .fit-layout .fit-side { grid-column: 1 / -1; }
 }
 @media (max-width: 780px) {
   .fit-layout { grid-template-columns: 1fr; }

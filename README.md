@@ -27,10 +27,11 @@ See [`deploy/README.md`](deploy/README.md).
 
 ## Roadmap
 
-- [x] Phase 1 — Scaffold: FastAPI, WDS branding, SSO trust, SQLite, systemd
-- [ ] Phase 2 — SDE loader (Fuzzwork SQLite)
-- [ ] Phase 3 — Import parsers (EFT, DNA, pyfa XML, killmail)
-- [ ] Phase 4 — Fit view with ship render + slot layout
-- [ ] Phase 5 — Vendor pyfa `eos` for pyfa-level stats
-- [ ] Phase 6 — Corp-shared fits: opt-in read of Fitting Managers' personal fits (`esi-fittings.read_fittings.v1`)
-- [ ] Phase 7 — Search, tags/doctrines, edit UI
+- [x] Scaffold: FastAPI, WDS branding, EVE SSO (corp gate), SQLite, systemd
+- [x] Fuzzwork SDE loader + weekly auto-refresh timer
+- [x] Import parsers (EFT, DNA, pyfa XML, killmail)
+- [x] Fit view: in-game style row layout with CCP slot icons
+- [x] Tags, browse-page filters, search, ship-group filter
+- [x] Edit fit (name / description / optional body replacement)
+- [ ] Pyfa-level stats — deferred; vendoring pyfa's eos would take 15-25 hrs
+      and carry ongoing maintenance cost. Revisit if / when the corp needs it.
