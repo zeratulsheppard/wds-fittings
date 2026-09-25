@@ -21,6 +21,14 @@
       <input type="text" name="name" value="{{ row.name }}" maxlength="120" required>
     </label>
     <label class="edit-label">
+      <span>Category <em class="muted">(optional — groups variant fits on the browse page)</em></span>
+      <input type="text" name="category" value="{{ row.category }}" maxlength="48"
+             list="category-suggestions" placeholder="e.g. Bomber, Ratting Tengu, Hauler">
+      <datalist id="category-suggestions">
+        {% for c in categories %}<option value="{{ c }}">{% endfor %}
+      </datalist>
+    </label>
+    <label class="edit-label">
       <span>Description <em class="muted">(optional)</em></span>
       <textarea name="description" rows="4" maxlength="2000">{{ row.description }}</textarea>
     </label>

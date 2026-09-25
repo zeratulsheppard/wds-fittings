@@ -51,6 +51,7 @@
       {% for t in tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
     </h1>
     <div class="fit-subtitle">
+      {% if row.category %}<a href="/?category={{ row.category|urlencode }}" class="cat-badge">{{ row.category }}</a>{% endif %}
       <a href="https://everef.net/type/{{ row.ship_type_id }}" target="_blank" rel="noopener">{{ fit.ship_type_name }}</a>
       {% if row.ship_group_name %}<span class="muted">· {{ row.ship_group_name }}</span>{% endif %}
       · by {{ row.owner_name }}

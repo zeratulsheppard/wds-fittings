@@ -26,6 +26,13 @@ templates = Jinja2Templates(directory=str(config.TEMPLATES_DIR))
 _TAG_ALLOWED = re.compile(r"[^A-Z0-9 _\-]")
 MAX_TAGS_PER_FIT = 8
 MAX_TAG_LEN = 24
+MAX_CATEGORY_LEN = 48
+
+
+def _normalise_category(raw: str) -> str:
+    # Titlecase-ish, strip surrounding whitespace, collapse inner spaces.
+    v = re.sub(r"\s+", " ", (raw or "").strip())
+    return v[:MAX_CATEGORY_LEN]
 
 
 def _normalise_tag(raw: str) -> Optional[str]:
@@ -58,6 +65,7 @@ async def index(
     q: Optional[str] = None,
     tag: Optional[str] = None,
     group: Optional[int] = None,
+    category: Optional[str] = None,
     mine: Optional[int] = None,
 ):
     where = []
@@ -73,18 +81,21 @@ async def index(
     if group:
         where.append("ship_group_id = ?")
         params.append(int(group))
+    if category:
+        where.append("category = ?")
+        params.append(_normalise_category(category))
     if mine:
         where.append("owner_id = ?")
         params.append(user.character_id)
 
     sql = (
-        "SELECT id, name, ship_type_id, ship_type_name, ship_group_id, "
+        "SELECT id, name, category, ship_type_id, ship_type_name, ship_group_id, "
         "ship_group_name, owner_name, tags, updated_at "
         "FROM fittings"
     )
     if where:
         sql += " WHERE " + " AND ".join(where)
-    sql += " ORDER BY updated_at DESC LIMIT 120"
+    sql += " ORDER BY updated_at DESC LIMIT 200"
 
     with db.connect() as conn:
         rows = conn.execute(sql, params).fetchall()
@@ -94,6 +105,10 @@ async def index(
             "SELECT ship_group_id, ship_group_name, COUNT(*) AS n "
             "FROM fittings WHERE ship_group_id > 0 "
             "GROUP BY ship_group_id ORDER BY n DESC, ship_group_name"
+        ).fetchall()
+        categories = conn.execute(
+            "SELECT category, COUNT(*) AS n FROM fittings "
+            "WHERE category <> '' GROUP BY category ORDER BY category"
         ).fetchall()
         tag_rows = conn.execute("SELECT tags FROM fittings").fetchall()
 
@@ -109,14 +124,33 @@ async def index(
         d["tags"] = db.load_tags(d["tags"])
         fits.append(d)
 
+    # Group by category when no explicit narrowing filter is active
+    any_filter = bool(q or tag or group or category or mine)
+    grouped: List[dict] = []
+    if not any_filter:
+        buckets: dict[str, List[dict]] = {}
+        for f in fits:
+            buckets.setdefault(f["category"] or "", []).append(f)
+        # Named categories first (alphabetical), then Uncategorized
+        for name in sorted(k for k in buckets if k):
+            grouped.append({"name": name, "fits": buckets[name]})
+        if "" in buckets:
+            grouped.append({"name": "", "fits": buckets[""]})
+
     return templates.TemplateResponse(
         request, "index.html",
         {
             "user": user,
             "fits": fits,
+            "grouped": grouped,
             "groups": [dict(g) for g in groups],
+            "categories": [dict(c) for c in categories],
             "top_tags": top_tags,
-            "filters": {"q": q or "", "tag": tag or "", "group": group or 0, "mine": bool(mine)},
+            "filters": {
+                "q": q or "", "tag": tag or "", "group": group or 0,
+                "category": category or "", "mine": bool(mine),
+                "any": any_filter,
+            },
         },
     )
 
@@ -128,7 +162,7 @@ async def import_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse(request, "import.html", {"user": user, "error": None})
 
 
-def _store_fit(fit: Fit, owner_id: int, owner_name: str) -> int:
+def _store_fit(fit: Fit, owner_id: int, owner_name: str, category: str = "") -> int:
     ship = sde.get_type(fit.ship_type_id)
     group_id = ship.group_id if ship else 0
     group_name = ship.group_name if ship else ""
@@ -138,10 +172,10 @@ def _store_fit(fit: Fit, owner_id: int, owner_name: str) -> int:
             """
             INSERT INTO fittings
                 (name, description, ship_type_id, ship_type_name,
-                 ship_group_id, ship_group_name,
+                 ship_group_id, ship_group_name, category,
                  fit_json, owner_id, owner_name, tags,
                  created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?)
             """,
             (
                 fit.name,
@@ -150,6 +184,7 @@ def _store_fit(fit: Fit, owner_id: int, owner_name: str) -> int:
                 fit.ship_type_name,
                 group_id,
                 group_name,
+                _normalise_category(category),
                 json.dumps(fit.to_dict()),
                 owner_id,
                 owner_name,
@@ -270,6 +305,14 @@ def _require_edit(row, user: User) -> None:
         raise HTTPException(403, "Not your fit")
 
 
+def _existing_categories() -> List[str]:
+    with db.connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT category FROM fittings WHERE category <> '' ORDER BY category"
+        ).fetchall()
+    return [r["category"] for r in rows]
+
+
 @router.get("/fit/{fit_id}/edit", response_class=HTMLResponse)
 async def fit_edit_page(fit_id: int, request: Request, user: User = Depends(require_user)):
     row = _load_fit_row(fit_id)
@@ -278,7 +321,12 @@ async def fit_edit_page(fit_id: int, request: Request, user: User = Depends(requ
     _require_edit(row, user)
     return templates.TemplateResponse(
         request, "edit.html",
-        {"user": user, "row": dict(row), "error": None},
+        {
+            "user": user,
+            "row": dict(row),
+            "categories": _existing_categories(),
+            "error": None,
+        },
     )
 
 
@@ -289,6 +337,7 @@ async def fit_edit_submit(
     user: User = Depends(require_user),
     name: str = Form(...),
     description: str = Form(""),
+    category: str = Form(""),
     fmt: Optional[str] = Form(None),
     text: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
@@ -300,10 +349,11 @@ async def fit_edit_submit(
 
     name = (name or "").strip()[:120]
     description = (description or "").strip()[:2000]
+    category = _normalise_category(category)
     if not name:
         return templates.TemplateResponse(
             request, "edit.html",
-            {"user": user, "row": dict(row), "error": "Name is required"},
+            {"user": user, "row": dict(row), "categories": _existing_categories(), "error": "Name is required"},
             status_code=400,
         )
 
@@ -341,7 +391,7 @@ async def fit_edit_submit(
     except ParseError as exc:
         return templates.TemplateResponse(
             request, "edit.html",
-            {"user": user, "row": dict(row), "error": str(exc)},
+            {"user": user, "row": dict(row), "categories": _existing_categories(), "error": str(exc)},
             status_code=400,
         )
 
@@ -351,22 +401,22 @@ async def fit_edit_submit(
             conn.execute(
                 """
                 UPDATE fittings
-                SET name = ?, description = ?, fit_json = ?,
+                SET name = ?, description = ?, category = ?, fit_json = ?,
                     ship_type_id = ?, ship_type_name = ?,
                     ship_group_id = ?, ship_group_name = ?,
                     updated_at = ?
                 WHERE id = ?
                 """,
                 (
-                    name, description, new_fit_json,
+                    name, description, category, new_fit_json,
                     new_ship_type_id, new_ship_type_name,
                     new_ship_group_id, new_ship_group_name,
                     now, fit_id,
                 ),
             )
         else:
-            # Rename / description only — also refresh the stored fit_json name
-            # so the fit view header stays in sync with the DB name.
+            # Rename / description / category only — also refresh the stored
+            # fit_json name so the fit view header stays in sync with the DB.
             try:
                 fit_data = json.loads(row["fit_json"])
                 fit_data["name"] = name
@@ -375,8 +425,9 @@ async def fit_edit_submit(
             except (json.JSONDecodeError, TypeError):
                 embedded_json = row["fit_json"]
             conn.execute(
-                "UPDATE fittings SET name = ?, description = ?, fit_json = ?, updated_at = ? WHERE id = ?",
-                (name, description, embedded_json, now, fit_id),
+                "UPDATE fittings SET name = ?, description = ?, category = ?, "
+                "fit_json = ?, updated_at = ? WHERE id = ?",
+                (name, description, category, embedded_json, now, fit_id),
             )
 
     return RedirectResponse(f"/fit/{fit_id}", status_code=303)

@@ -27,6 +27,8 @@ _MIGRATIONS = [
     "ALTER TABLE fittings ADD COLUMN ship_group_id INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE fittings ADD COLUMN ship_group_name TEXT NOT NULL DEFAULT ''",
     "CREATE INDEX IF NOT EXISTS idx_fittings_group ON fittings(ship_group_id)",
+    "ALTER TABLE fittings ADD COLUMN category TEXT NOT NULL DEFAULT ''",
+    "CREATE INDEX IF NOT EXISTS idx_fittings_category ON fittings(category)",
 ]
 
 

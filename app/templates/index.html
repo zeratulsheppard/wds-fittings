@@ -1,5 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Fittings — WDS{% endblock %}
+
+{%- macro fit_card(f) -%}
+<a class="fit-card" href="/fit/{{ f.id }}">
+  <img class="fit-render"
+       src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=128"
+       alt="{{ f.ship_type_name }}" loading="lazy">
+  <div class="fit-meta">
+    <div class="fit-name">
+      {{ f.name }}
+      {% for t in f.tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
+    </div>
+    <div class="fit-ship">
+      {{ f.ship_type_name }}{% if f.ship_group_name %}
+      <span class="muted"> · {{ f.ship_group_name }}</span>{% endif %}
+    </div>
+    <div class="fit-owner">by {{ f.owner_name }}</div>
+  </div>
+</a>
+{%- endmacro -%}
+
 {% block content %}
 <div class="page-head">
   <h1 class="page-title">Fittings library</h1>
@@ -8,6 +28,14 @@
 
 <form method="GET" action="/" class="filter-bar">
   <input type="search" name="q" value="{{ filters.q }}" placeholder="Search fit or ship…" class="filter-search">
+  <select name="category" class="filter-select">
+    <option value="">All categories</option>
+    {% for c in categories %}
+    <option value="{{ c.category }}" {% if filters.category == c.category %}selected{% endif %}>
+      {{ c.category }} ({{ c.n }})
+    </option>
+    {% endfor %}
+  </select>
   <select name="group" class="filter-select">
     <option value="0">All ship groups</option>
     {% for g in groups %}
@@ -21,7 +49,7 @@
     Only mine
   </label>
   <button type="submit" class="btn-primary">Apply</button>
-  {% if filters.q or filters.tag or filters.group or filters.mine %}
+  {% if filters.any %}
     <a href="/" class="filter-clear">Clear</a>
   {% endif %}
 </form>
@@ -39,29 +67,26 @@
 {% endif %}
 
 {% if fits %}
-<div class="fit-grid">
-  {% for f in fits %}
-  <a class="fit-card" href="/fit/{{ f.id }}">
-    <img class="fit-render"
-         src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=128"
-         alt="{{ f.ship_type_name }}" loading="lazy">
-    <div class="fit-meta">
-      <div class="fit-name">
-        {{ f.name }}
-        {% for t in f.tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
+  {% if grouped %}
+    {% for section in grouped %}
+    <section class="cat-section">
+      <h2 class="cat-heading">
+        {% if section.name %}{{ section.name }}{% else %}Uncategorized{% endif %}
+        <span class="cat-count">{{ section.fits|length }}</span>
+      </h2>
+      <div class="fit-grid">
+        {% for f in section.fits %}{{ fit_card(f) }}{% endfor %}
       </div>
-      <div class="fit-ship">
-        {{ f.ship_type_name }}{% if f.ship_group_name %}
-        <span class="muted"> · {{ f.ship_group_name }}</span>{% endif %}
-      </div>
-      <div class="fit-owner">by {{ f.owner_name }}</div>
+    </section>
+    {% endfor %}
+  {% else %}
+    <div class="fit-grid">
+      {% for f in fits %}{{ fit_card(f) }}{% endfor %}
     </div>
-  </a>
-  {% endfor %}
-</div>
+  {% endif %}
 {% else %}
 <div class="empty-state">
-  {% if filters.q or filters.tag or filters.group or filters.mine %}
+  {% if filters.any %}
     <p>No fittings match your filters.</p>
     <a href="/" class="btn-primary">Clear filters</a>
   {% else %}
