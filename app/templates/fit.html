@@ -46,9 +46,13 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <h1 class="page-title">{{ fit.name }}</h1>
+    <h1 class="page-title">
+      {{ fit.name }}
+      {% for t in tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
+    </h1>
     <div class="fit-subtitle">
       <a href="https://everef.net/type/{{ row.ship_type_id }}" target="_blank" rel="noopener">{{ fit.ship_type_name }}</a>
+      {% if row.ship_group_name %}<span class="muted">· {{ row.ship_group_name }}</span>{% endif %}
       · by {{ row.owner_name }}
     </div>
   </div>
@@ -61,6 +65,21 @@
     </form>
     {% endif %}
   </div>
+</div>
+
+<div class="tag-editor" data-fit-id="{{ row.id }}" data-can-edit="{{ '1' if can_edit else '0' }}">
+  <div class="tag-list" id="tag-list">
+    {% for t in tags %}
+      <span class="tag-chip">[{{ t }}]{% if can_edit %}<button type="button" data-remove="{{ t }}" title="Remove tag">×</button>{% endif %}</span>
+    {% endfor %}
+    {% if not tags %}<span class="muted tag-empty">No tags</span>{% endif %}
+  </div>
+  {% if can_edit %}
+  <form id="tag-form" onsubmit="return false">
+    <input type="text" id="tag-input" placeholder="Add tag…" maxlength="24" autocomplete="off">
+    <button type="submit" class="btn-secondary" id="tag-add">Add</button>
+  </form>
+  {% endif %}
 </div>
 
 {# For T3s the ship SDE reports 0 high/med/low (subsystems add them dynamically)
@@ -140,5 +159,77 @@
     });
     s.addEventListener('mouseleave', () => { nameEl.textContent = ' '; });
   });
+
+  // Tag editor
+  (function () {
+    const editor = document.querySelector('.tag-editor');
+    if (!editor) return;
+    const canEdit = editor.dataset.canEdit === '1';
+    if (!canEdit) return;
+
+    const fitId = editor.dataset.fitId;
+    const listEl = editor.querySelector('#tag-list');
+    const input  = editor.querySelector('#tag-input');
+    const form   = editor.querySelector('#tag-form');
+
+    const normalise = s => (s || '').toUpperCase().replace(/[^A-Z0-9 _\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+
+    function readTags() {
+      return [...listEl.querySelectorAll('.tag-chip')].map(el => el.dataset.tag);
+    }
+
+    function render(tags) {
+      listEl.innerHTML = '';
+      if (!tags.length) {
+        const em = document.createElement('span');
+        em.className = 'muted tag-empty';
+        em.textContent = 'No tags';
+        listEl.appendChild(em);
+        return;
+      }
+      tags.forEach(t => {
+        const c = document.createElement('span');
+        c.className = 'tag-chip';
+        c.dataset.tag = t;
+        c.innerHTML = `[${t}]<button type="button" data-remove="${t}" title="Remove tag">×</button>`;
+        listEl.appendChild(c);
+      });
+    }
+
+    async function save(tags) {
+      const r = await fetch(`/fit/${fitId}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags })
+      });
+      if (!r.ok) { alert('Save failed'); return null; }
+      const data = await r.json();
+      render(data.tags);
+      return data.tags;
+    }
+
+    // Seed dataset on the initial DOM chips
+    listEl.querySelectorAll('.tag-chip').forEach(c => {
+      const btn = c.querySelector('button');
+      c.dataset.tag = btn ? btn.dataset.remove : c.textContent.replace(/[\[\]×]/g, '').trim();
+    });
+
+    form.addEventListener('submit', async () => {
+      const t = normalise(input.value);
+      if (!t) return;
+      const current = readTags();
+      if (current.includes(t)) { input.value = ''; return; }
+      await save([...current, t]);
+      input.value = '';
+    });
+
+    listEl.addEventListener('click', async ev => {
+      const btn = ev.target.closest('button[data-remove]');
+      if (!btn) return;
+      const rm = btn.dataset.remove;
+      const next = readTags().filter(t => t !== rm);
+      await save(next);
+    });
+  })();
 </script>
 {% endblock %}

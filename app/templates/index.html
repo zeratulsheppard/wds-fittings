@@ -6,6 +6,38 @@
   <a href="/import" class="btn-primary">+ Import fit</a>
 </div>
 
+<form method="GET" action="/" class="filter-bar">
+  <input type="search" name="q" value="{{ filters.q }}" placeholder="Search fit or ship…" class="filter-search">
+  <select name="group" class="filter-select">
+    <option value="0">All ship groups</option>
+    {% for g in groups %}
+    <option value="{{ g.ship_group_id }}" {% if filters.group == g.ship_group_id %}selected{% endif %}>
+      {{ g.ship_group_name }} ({{ g.n }})
+    </option>
+    {% endfor %}
+  </select>
+  <label class="filter-check">
+    <input type="checkbox" name="mine" value="1" {% if filters.mine %}checked{% endif %}>
+    Only mine
+  </label>
+  <button type="submit" class="btn-primary">Apply</button>
+  {% if filters.q or filters.tag or filters.group or filters.mine %}
+    <a href="/" class="filter-clear">Clear</a>
+  {% endif %}
+</form>
+
+{% if top_tags %}
+<div class="tag-cloud">
+  <span class="tag-cloud-label">Tags:</span>
+  {% for name, count in top_tags %}
+  <a href="/?tag={{ name|urlencode }}"
+     class="tag-chip {% if filters.tag == name %}active{% endif %}">
+    [{{ name }}] <span class="tag-count">{{ count }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if fits %}
 <div class="fit-grid">
   {% for f in fits %}
@@ -14,7 +46,10 @@
          src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=256"
          alt="{{ f.ship_type_name }}" loading="lazy">
     <div class="fit-meta">
-      <div class="fit-name">{{ f.name }}</div>
+      <div class="fit-name">
+        {{ f.name }}
+        {% for t in f.tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
+      </div>
       <div class="fit-ship">{{ f.ship_type_name }}</div>
       <div class="fit-owner">by {{ f.owner_name }}</div>
     </div>
@@ -23,8 +58,13 @@
 </div>
 {% else %}
 <div class="empty-state">
-  <p>No fittings imported yet.</p>
-  <a href="/import" class="btn-primary">Import your first fit</a>
+  {% if filters.q or filters.tag or filters.group or filters.mine %}
+    <p>No fittings match your filters.</p>
+    <a href="/" class="btn-primary">Clear filters</a>
+  {% else %}
+    <p>No fittings imported yet.</p>
+    <a href="/import" class="btn-primary">Import your first fit</a>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock %}
