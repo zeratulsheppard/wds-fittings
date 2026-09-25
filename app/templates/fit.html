@@ -1,22 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ fit.name }} — {{ fit.ship_type_name }}{% endblock %}
 
-{%- macro slot_cell(item, slot_type) -%}
-  {%- if item -%}
-    <div class="slot slot-{{ slot_type }} filled"
-         title="{{ item.name }}{% if item.charge_name %} · loaded {{ item.charge_name }}{% endif %}"
-         data-name="{{ item.name }}"
-         data-charge="{{ item.charge_name or '' }}">
+{%- macro ring_slot(cell, slot_type) -%}
+  {%- set item = cell.item -%}
+  <div class="ring-slot slot-{{ slot_type }} {% if item %}filled{% else %}empty{% endif %}"
+       style="--angle: {{ cell.angle }}deg; --radius: {{ cell.radius }}px; --size: {{ cell.size }}px;"
+       {% if item %}data-name="{{ item.name }}"
+                    data-charge="{{ item.charge_name or '' }}"
+                    title="{{ item.name }}{% if item.charge_name %} · {{ item.charge_name }}{% endif %}"
+       {% endif %}>
+    {%- if item -%}
       <img src="https://images.evetech.net/types/{{ item.type_id }}/icon?size=64" alt="">
       {%- if item.charge_type_id -%}
-      <span class="charge-badge" title="{{ item.charge_name }}">
+      <span class="charge-badge">
         <img src="https://images.evetech.net/types/{{ item.charge_type_id }}/icon?size=32" alt="">
       </span>
       {%- endif -%}
-    </div>
-  {%- else -%}
-    <div class="slot slot-{{ slot_type }} empty"></div>
-  {%- endif -%}
+    {%- endif -%}
+  </div>
 {%- endmacro -%}
 
 {% block content %}
@@ -41,56 +42,67 @@
 
 <div class="fit-layout">
 
-  <!-- IN-GAME STYLE FITTING FRAME -->
-  <div class="fit-frame">
-    <div class="fit-hover-name" id="hover-name">&nbsp;</div>
+  <!-- Circular fitting ring -->
+  <div class="ring-wrap">
+    <div class="ring-hover" id="hover-name">&nbsp;</div>
 
-    {% if layout.subsystem %}
-    <div class="slot-row slot-row-sub">
-      {% for i in range(layout.subsystem) %}
-        {{ slot_cell(fit.subsystem[i] if i < fit.subsystem|length else None, 'sub') }}
-      {% endfor %}
-    </div>
-    {% endif %}
+    <div class="ring-frame">
+      <!-- concentric decorative rings -->
+      <svg class="ring-svg" viewBox="0 0 800 800" aria-hidden="true">
+        <defs>
+          <radialGradient id="hex" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"  stop-color="#1c2530"/>
+            <stop offset="100%" stop-color="#050810"/>
+          </radialGradient>
+        </defs>
+        <circle cx="400" cy="400" r="380" fill="url(#hex)"/>
+        <circle cx="400" cy="400" r="370" fill="none" stroke="rgba(90,170,220,.35)" stroke-width="1"/>
+        <circle cx="400" cy="400" r="290" fill="none" stroke="rgba(90,170,220,.18)" stroke-width="1" stroke-dasharray="2 6"/>
+        <circle cx="400" cy="400" r="220" fill="none" stroke="rgba(90,170,220,.15)" stroke-width="1"/>
+        <line x1="400" y1="20" x2="400" y2="780" stroke="rgba(90,170,220,.08)" stroke-width="1"/>
+        <line x1="20" y1="400" x2="780" y2="400" stroke="rgba(90,170,220,.08)" stroke-width="1"/>
+      </svg>
 
-    <div class="slot-row slot-row-high">
-      {% for i in range(layout.high) %}
-        {{ slot_cell(fit.high[i] if i < fit.high|length else None, 'high') }}
-      {% endfor %}
-    </div>
-
-    <div class="fit-mid">
-      <div class="slot-col slot-col-low">
-        {% for i in range(layout.low) %}
-          {{ slot_cell(fit.low[i] if i < fit.low|length else None, 'low') }}
-        {% endfor %}
-      </div>
-
-      <div class="ship-render">
+      <div class="ring-ship">
         <img src="https://images.evetech.net/types/{{ row.ship_type_id }}/render?size=512"
              alt="{{ fit.ship_type_name }}">
       </div>
 
-      <div class="slot-col slot-col-med">
-        {% for i in range(layout.med) %}
-          {{ slot_cell(fit.med[i] if i < fit.med|length else None, 'med') }}
+      {% for slot_type, cells in ring.items() %}
+        {% for cell in cells %}
+          {{ ring_slot(cell, slot_type) }}
         {% endfor %}
-      </div>
-    </div>
-
-    <div class="slot-row slot-row-rig">
-      {% for i in range(layout.rig) %}
-        {{ slot_cell(fit.rig[i] if i < fit.rig|length else None, 'rig') }}
       {% endfor %}
+
+      <!-- Bay indicators on the left arc -->
+      {% if fit.drones %}
+      <div class="ring-bay bay-drone" style="--angle: 285deg; --radius: 260px;">
+        <img src="https://images.evetech.net/types/2454/icon?size=64" alt="Drones" title="Drone bay">
+        <span class="bay-count">{{ fit.drones|sum(attribute='quantity') }}</span>
+      </div>
+      {% endif %}
+      {% if fit.cargo %}
+      <div class="ring-bay bay-cargo" style="--angle: 255deg; --radius: 260px;">
+        <img src="https://images.evetech.net/types/23/icon?size=64" alt="Cargo" title="Cargo hold">
+        <span class="bay-count">{{ fit.cargo|length }}</span>
+      </div>
+      {% endif %}
     </div>
 
-    <div class="fit-hardpoint-line">
+    <div class="ring-hardpoints">
       <span title="Turret hardpoints">⚔ {{ layout.turret_hardpoints }}</span>
       <span title="Launcher hardpoints">🚀 {{ layout.launcher_hardpoints }}</span>
+      <span class="ring-legend">
+        <span class="legend-dot legend-high"></span>H
+        <span class="legend-dot legend-med"></span>M
+        <span class="legend-dot legend-low"></span>L
+        <span class="legend-dot legend-rig"></span>R
+        {% if layout.subsystem %}<span class="legend-dot legend-sub"></span>S{% endif %}
+      </span>
     </div>
   </div>
 
-  <!-- SIDEBAR: DRONES / CARGO / STATS -->
+  <!-- Sidebar -->
   <aside class="fit-side">
     {% if fit.drones %}
     <section class="side-block">
@@ -130,17 +142,14 @@
 </div>
 
 <script>
-  // Show hovered module name in the header of the fit frame
   const nameEl = document.getElementById('hover-name');
-  const slots = document.querySelectorAll('.fit-frame .slot.filled');
-  const defaultTxt = " ";
-  slots.forEach(s => {
+  document.querySelectorAll('.ring-slot.filled').forEach(s => {
     s.addEventListener('mouseenter', () => {
       const n = s.dataset.name || '';
       const c = s.dataset.charge || '';
       nameEl.textContent = c ? `${n}  ·  ${c}` : n;
     });
-    s.addEventListener('mouseleave', () => { nameEl.textContent = defaultTxt; });
+    s.addEventListener('mouseleave', () => { nameEl.textContent = ' '; });
   });
 </script>
 {% endblock %}
