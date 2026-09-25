@@ -18,42 +18,6 @@ from ..parsers import (
 )
 from ..sde import loader as sde
 
-
-# Ring layout: (start_deg, end_deg, radius_px, slot_size_px)
-# Angles: 0 = top, 90 = right, 180 = bottom, 270 = left.
-_RING = {
-    "subsystem": (-55, 55, 320, 52),
-    "high":      (-75, 75, 260, 52),
-    "med":       (90, 150, 260, 52),
-    "low":       (160, 220, 260, 52),
-    "rig":       (170, 190, 195, 46),
-}
-
-
-def _ring_positions(layout: dict, fit_dict: dict) -> dict:
-    """Return {slot_type: [{angle, radius, size, item}, ...]} for template rendering."""
-    out = {}
-    for slot, params in _RING.items():
-        count = int(layout.get(slot, 0))
-        if count <= 0:
-            continue
-        start, end, radius, size = params
-        items = fit_dict.get(slot, []) or []
-        cells = []
-        for i in range(count):
-            if count == 1:
-                angle = (start + end) / 2
-            else:
-                angle = start + (end - start) * i / (count - 1)
-            cells.append({
-                "angle": angle,
-                "radius": radius,
-                "size": size,
-                "item": items[i] if i < len(items) else None,
-            })
-        out[slot] = cells
-    return out
-
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.TEMPLATES_DIR))
 
@@ -169,7 +133,6 @@ async def fit_view(fit_id: int, request: Request, user: User = Depends(require_u
     fit_data = json.loads(row["fit_json"])
     slot_layout = sde.ship_slot_layout(row["ship_type_id"])
     can_edit = user.character_id == row["owner_id"] or user.is_director
-    ring = _ring_positions(slot_layout, fit_data)
 
     return templates.TemplateResponse(
         request, "fit.html",
@@ -178,7 +141,6 @@ async def fit_view(fit_id: int, request: Request, user: User = Depends(require_u
             "row": dict(row),
             "fit": fit_data,
             "layout": slot_layout,
-            "ring": ring,
             "can_edit": can_edit,
         },
     )
