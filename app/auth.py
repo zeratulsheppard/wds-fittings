@@ -15,31 +15,50 @@ class User:
     def is_director(self) -> bool:
         return "Director" in self.roles
 
+    @property
+    def is_fitting_manager(self) -> bool:
+        return "Fitting_Manager" in self.roles
+
 
 def _split_csv(value: str) -> List[str]:
     return [p.strip() for p in value.split(",") if p.strip()] if value else []
 
 
 def get_user(request: Request) -> Optional[User]:
-    """Read WDS SSO gateway headers; fall back to DEV_* env vars for local runs."""
-    h = request.headers
-    cid_raw = h.get("x-character-id") or config.DEV_CHARACTER_ID or "0"
-    try:
-        cid = int(cid_raw)
-    except ValueError:
-        cid = 0
-    if not cid:
-        return None
-    name = h.get("x-authenticated-user") or config.DEV_CHARACTER_NAME or "Capsuleer"
-    roles = _split_csv(h.get("x-character-roles") or config.DEV_CHARACTER_ROLES)
-    titles = _split_csv(h.get("x-character-titles") or config.DEV_CHARACTER_TITLES)
-    return User(character_id=cid, character_name=name, roles=roles, titles=titles)
+    """Prefer session (populated by /sso/callback); fall back to DEV_* env vars."""
+    sess_user = request.session.get("user") if hasattr(request, "session") else None
+    if sess_user and sess_user.get("character_id"):
+        return User(
+            character_id=int(sess_user["character_id"]),
+            character_name=str(sess_user.get("character_name") or "Capsuleer"),
+            roles=list(sess_user.get("roles") or []),
+            titles=list(sess_user.get("titles") or []),
+        )
+
+    if config.DEV_CHARACTER_ID:
+        try:
+            cid = int(config.DEV_CHARACTER_ID)
+        except ValueError:
+            cid = 0
+        if cid:
+            return User(
+                character_id=cid,
+                character_name=config.DEV_CHARACTER_NAME or "Capsuleer",
+                roles=_split_csv(config.DEV_CHARACTER_ROLES),
+                titles=_split_csv(config.DEV_CHARACTER_TITLES),
+            )
+
+    return None
 
 
 def require_user(request: Request) -> User:
     user = get_user(request)
     if user is None:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        # Redirect through /sso/login instead of 401 for browser flows
+        raise HTTPException(
+            status_code=302,
+            headers={"Location": "/sso/login?next=" + str(request.url.path)},
+        )
     return user
 
 
