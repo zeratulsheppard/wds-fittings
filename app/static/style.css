@@ -185,24 +185,76 @@ main {
 }
 
 .import-basics { margin-bottom: 1rem; padding: 1rem 1.1rem; }
-.import-basics > p { margin: 0 0 .8rem; }
-.import-basics-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.import-basics > p { margin: 0 0 1rem; }
+
+.picker-block { margin-bottom: 1rem; }
+.picker-block:last-child { margin-bottom: 0; }
+.picker-head {
+  display: flex;
+  align-items: baseline;
+  gap: .8rem;
+  margin-bottom: .4rem;
 }
-@media (max-width: 700px) { .import-basics-row { grid-template-columns: 1fr; } }
-.import-basics-row .edit-label input {
+.picker-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.picker-summary {
+  color: var(--orange);
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+.picker-row {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+.picker-row .filter-select { min-width: 260px; flex-shrink: 0; }
+.picker-input {
   background: #0a0a0a;
   border: 1px solid var(--border);
   color: var(--text-bright);
-  padding: .45rem .7rem;
+  padding: .4rem .7rem;
   border-radius: var(--radius);
   font-size: 13px;
-  font-family: inherit;
-  width: 100%;
+  font-family: 'Consolas', 'Menlo', monospace;
+  text-transform: uppercase;
+  flex: 1;
+  min-width: 200px;
 }
-.import-basics-row .edit-label input:focus { outline: none; border-color: var(--orange); }
+.picker-input:focus { outline: none; border-color: var(--orange); }
+.picker-input.hidden { display: none; }
+
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: .5rem;
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: .5rem;
+  min-height: 40px;
+}
+.picker-empty { font-size: 12px; padding: 4px 6px; }
+
+.picker-chip {
+  background: transparent;
+  border: 1px solid rgba(240, 124, 0, .35);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background .1s, color .1s, border-color .1s;
+}
+.picker-chip:hover { border-color: var(--orange); color: var(--orange); }
+.picker-chip.selected {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #000;
+}
+.picker-chip.selected:hover { background: #d06a00; }
 
 .import-tabs { display: flex; gap: 4px; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .import-tabs .tab {

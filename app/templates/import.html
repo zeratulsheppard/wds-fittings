@@ -11,19 +11,40 @@
 <div class="card import-basics">
   <p class="muted">Category and tags apply to every fit imported below. For pyfa XML files
   with multiple fittings, every fit in the file inherits these values.</p>
-  <div class="import-basics-row">
-    <label class="edit-label">
-      <span>Category <em class="muted">(optional)</em></span>
-      <input type="text" id="import-category" value="{{ form.category }}" maxlength="48"
-             list="category-suggestions" placeholder="e.g. Bomber, Ratting Tengu, Hauler">
-      <datalist id="category-suggestions">
-        {% for c in categories %}<option value="{{ c }}">{% endfor %}
-      </datalist>
-    </label>
-    <label class="edit-label">
-      <span>Tags <em class="muted">(optional — comma separated, uppercase alnum)</em></span>
-      <input type="text" id="import-tags" value="{{ form.tags_str }}" placeholder="PVP, BUDGET, BOMBER">
-    </label>
+
+  <div class="picker-block">
+    <div class="picker-head">
+      <span class="picker-label">Category <em class="muted">(optional)</em></span>
+    </div>
+    <div class="picker-row">
+      <select id="cat-select" class="filter-select">
+        <option value="">— No category —</option>
+        {% for c in categories %}
+        <option value="{{ c }}" {% if form.category == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+        <option value="__NEW__">+ New category…</option>
+      </select>
+      <input type="text" id="cat-new" class="picker-input hidden" maxlength="48"
+             placeholder="New category name" value="{% if form.category and form.category not in categories %}{{ form.category }}{% endif %}">
+    </div>
+  </div>
+
+  <div class="picker-block">
+    <div class="picker-head">
+      <span class="picker-label">Tags <em class="muted">(optional — click to toggle)</em></span>
+      <span id="tag-summary" class="picker-summary"></span>
+    </div>
+    <div class="tag-picker" id="tag-picker">
+      {% for t in existing_tags %}
+      <button type="button" class="tag-chip picker-chip" data-tag="{{ t }}">[{{ t }}]</button>
+      {% endfor %}
+      {% if not existing_tags %}<span class="muted picker-empty">No tags used yet — add one below.</span>{% endif %}
+    </div>
+    <div class="picker-row">
+      <input type="text" id="tag-new" class="picker-input" maxlength="24"
+             placeholder="+ New tag (uppercase, alnum + _ -)">
+      <button type="button" id="tag-new-add" class="btn-secondary">Add</button>
+    </div>
   </div>
 </div>
 
@@ -80,6 +101,7 @@
 </div>
 
 <script>
+  // Tab switching
   const tabs = document.querySelectorAll('#tabs .tab');
   const panels = document.querySelectorAll('.import-panel');
   tabs.forEach(t => t.addEventListener('click', () => {
@@ -88,15 +110,107 @@
     panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== t.dataset.tab));
   }));
 
-  // Mirror the shared category/tags into every form's hidden inputs before submit.
-  const catEl  = document.getElementById('import-category');
-  const tagsEl = document.getElementById('import-tags');
-  function sync() {
-    document.querySelectorAll('.js-category').forEach(el => el.value = catEl.value);
-    document.querySelectorAll('.js-tags').forEach(el => el.value = tagsEl.value);
+  // Category picker: select from existing, or reveal input for a new one.
+  const catSelect = document.getElementById('cat-select');
+  const catNew    = document.getElementById('cat-new');
+  function currentCategory() {
+    if (catSelect.value === '__NEW__') return catNew.value.trim();
+    return catSelect.value;
   }
-  catEl.addEventListener('input', sync);
-  tagsEl.addEventListener('input', sync);
+  function refreshCategoryVisibility() {
+    catNew.classList.toggle('hidden', catSelect.value !== '__NEW__');
+    if (catSelect.value === '__NEW__') catNew.focus();
+  }
+  catSelect.addEventListener('change', () => { refreshCategoryVisibility(); sync(); });
+  catNew.addEventListener('input', sync);
+  // If server pre-selected a value that isn't in the options list, treat as new
+  if (!catSelect.value && catNew.value) {
+    catSelect.value = '__NEW__';
+  }
+  refreshCategoryVisibility();
+
+  // Tag picker: chip toggle for existing, plus an add field for new tags.
+  const tagPicker = document.getElementById('tag-picker');
+  const tagNew    = document.getElementById('tag-new');
+  const tagAddBtn = document.getElementById('tag-new-add');
+  const tagSummary = document.getElementById('tag-summary');
+
+  function normaliseTag(s) {
+    return (s || '').toUpperCase().replace(/[^A-Z0-9 _\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  }
+
+  function selectedTags() {
+    return [...tagPicker.querySelectorAll('.picker-chip.selected')].map(el => el.dataset.tag);
+  }
+
+  function refreshTagSummary() {
+    const sel = selectedTags();
+    tagSummary.textContent = sel.length
+      ? sel.map(t => `[${t}]`).join(' ')
+      : '';
+  }
+
+  tagPicker.addEventListener('click', ev => {
+    const chip = ev.target.closest('.picker-chip');
+    if (!chip) return;
+    chip.classList.toggle('selected');
+    refreshTagSummary();
+    sync();
+  });
+
+  function addNewTag() {
+    const t = normaliseTag(tagNew.value);
+    if (!t) { tagNew.value = ''; return; }
+    let chip = tagPicker.querySelector(`.picker-chip[data-tag="${t}"]`);
+    if (!chip) {
+      const empty = tagPicker.querySelector('.picker-empty');
+      if (empty) empty.remove();
+      chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'tag-chip picker-chip';
+      chip.dataset.tag = t;
+      chip.textContent = `[${t}]`;
+      tagPicker.appendChild(chip);
+    }
+    chip.classList.add('selected');
+    tagNew.value = '';
+    refreshTagSummary();
+    sync();
+  }
+  tagAddBtn.addEventListener('click', addNewTag);
+  tagNew.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addNewTag(); }
+  });
+
+  // Seed selection from server-provided tag string (repopulate after a parse error)
+  (function seed() {
+    const raw = {{ form.tags_str | tojson }};
+    if (!raw) return;
+    raw.split(/[,\n]+/).map(normaliseTag).filter(Boolean).forEach(t => {
+      let chip = tagPicker.querySelector(`.picker-chip[data-tag="${t}"]`);
+      if (!chip) {
+        const empty = tagPicker.querySelector('.picker-empty');
+        if (empty) empty.remove();
+        chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip picker-chip';
+        chip.dataset.tag = t;
+        chip.textContent = `[${t}]`;
+        tagPicker.appendChild(chip);
+      }
+      chip.classList.add('selected');
+    });
+    refreshTagSummary();
+  })();
+
+  // Mirror shared category + tags into every form's hidden inputs before submit.
+  function sync() {
+    const c = currentCategory();
+    const t = selectedTags().join(',');
+    document.querySelectorAll('.js-category').forEach(el => el.value = c);
+    document.querySelectorAll('.js-tags').forEach(el => el.value = t);
+  }
+  sync();
   document.querySelectorAll('.import-panel form').forEach(f => f.addEventListener('submit', sync));
 </script>
 {% endblock %}

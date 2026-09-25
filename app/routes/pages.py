@@ -157,6 +157,16 @@ async def index(
 
 # --- Import -----------------------------------------------------------------
 
+def _existing_tags() -> List[str]:
+    with db.connect() as conn:
+        rows = conn.execute("SELECT tags FROM fittings").fetchall()
+    seen = set()
+    for r in rows:
+        for t in db.load_tags(r["tags"]):
+            seen.add(t)
+    return sorted(seen)
+
+
 @router.get("/import", response_class=HTMLResponse)
 async def import_page(request: Request, user: User = Depends(require_user)):
     return templates.TemplateResponse(
@@ -164,6 +174,7 @@ async def import_page(request: Request, user: User = Depends(require_user)):
         {
             "user": user,
             "categories": _existing_categories(),
+            "existing_tags": _existing_tags(),
             "form": {"category": "", "tags_str": ""},
             "error": None,
         },
@@ -237,6 +248,7 @@ async def import_submit(
             {
                 "user": user,
                 "categories": _existing_categories(),
+                "existing_tags": _existing_tags(),
                 "form": {"category": category, "tags_str": tags},
                 "error": msg,
             },
