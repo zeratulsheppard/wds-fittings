@@ -43,14 +43,17 @@
   {% for f in fits %}
   <a class="fit-card" href="/fit/{{ f.id }}">
     <img class="fit-render"
-         src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=256"
+         src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=128"
          alt="{{ f.ship_type_name }}" loading="lazy">
     <div class="fit-meta">
       <div class="fit-name">
         {{ f.name }}
         {% for t in f.tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
       </div>
-      <div class="fit-ship">{{ f.ship_type_name }}</div>
+      <div class="fit-ship">
+        {{ f.ship_type_name }}{% if f.ship_group_name %}
+        <span class="muted"> · {{ f.ship_group_name }}</span>{% endif %}
+      </div>
       <div class="fit-owner">by {{ f.owner_name }}</div>
     </div>
   </a>
