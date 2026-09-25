@@ -227,58 +227,155 @@ code {
 
 .fit-layout {
   display: grid;
-  grid-template-columns: 320px 1fr 320px;
-  gap: 1.2rem;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1.5rem;
   align-items: start;
 }
-@media (max-width: 1100px) {
+@media (max-width: 1000px) {
   .fit-layout { grid-template-columns: 1fr; }
 }
 
-.fit-ship img {
-  width: 100%;
-  border-radius: var(--radius);
-  background: #000;
+/* --- In-game style fitting frame --- */
+.fit-frame {
+  background:
+    radial-gradient(ellipse at center, #191919 0%, #0a0a0a 70%),
+    #000;
   border: 1px solid var(--border);
-}
-.fit-hp-summary { margin-top: .6rem; font-size: 12px; }
-
-.slot-group { margin-bottom: 1.2rem; }
-.slot-header {
-  color: var(--text-bright);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  padding-bottom: .3rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: .5rem;
-}
-.slot-items { display: flex; flex-direction: column; gap: 4px; }
-.slot-item {
+  border-radius: var(--radius);
+  padding: 1.2rem;
   display: flex;
-  gap: .6rem;
+  flex-direction: column;
   align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.fit-hover-name {
+  min-height: 1.4em;
+  color: var(--text-bright);
+  font-size: 13px;
+  letter-spacing: .02em;
+  text-align: center;
+  font-family: 'Consolas', 'Menlo', monospace;
+}
+
+.slot-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.slot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fit-mid {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.ship-render {
+  width: 380px;
+  max-width: 40vw;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ship-render img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 40px rgba(240, 124, 0, 0.15));
+}
+
+.slot {
+  width: 52px;
+  height: 52px;
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: border-color .12s, transform .12s;
+}
+.slot.filled { cursor: help; }
+.slot.filled:hover { border-color: var(--orange); transform: scale(1.05); z-index: 5; }
+.slot img { width: 44px; height: 44px; }
+.slot.empty { opacity: .35; background: repeating-linear-gradient(45deg, #0a0a0a 0 4px, #141414 4px 8px); }
+
+/* Colour hint per slot type — matches EVE UI cues */
+.slot-high.filled { border-top: 2px solid #c99a2b; }
+.slot-med.filled  { border-top: 2px solid #4a90d9; }
+.slot-low.filled  { border-top: 2px solid #d94a4a; }
+.slot-rig.filled  { border-top: 2px solid #b060c0; }
+.slot-sub.filled  { border-top: 2px solid #5abf6e; }
+
+.slot-high.empty { border-top: 2px solid rgba(201, 154, 43, 0.3); }
+.slot-med.empty  { border-top: 2px solid rgba(74, 144, 217, 0.3); }
+.slot-low.empty  { border-top: 2px solid rgba(217, 74, 74, 0.3); }
+.slot-rig.empty  { border-top: 2px solid rgba(176, 96, 192, 0.3); }
+.slot-sub.empty  { border-top: 2px solid rgba(90, 191, 110, 0.3); }
+
+.charge-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  background: #000;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.charge-badge img { width: 20px; height: 20px; }
+
+/* Rigs are usually smaller */
+.slot-rig { width: 46px; height: 46px; }
+.slot-rig img { width: 38px; height: 38px; }
+
+.fit-hardpoint-line {
+  margin-top: 6px;
+  display: flex;
+  gap: 1rem;
+  color: var(--text-dim);
+  font-size: 12px;
+  letter-spacing: .04em;
+}
+
+/* --- Sidebar --- */
+.fit-side { display: flex; flex-direction: column; gap: 1rem; }
+.side-block {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 6px 10px;
+  padding: .9rem 1rem;
 }
-.slot-item img { width: 32px; height: 32px; flex-shrink: 0; }
-.slot-item-body { flex: 1; min-width: 0; }
-.slot-item-name { color: var(--text-bright); font-size: 13px; }
-.slot-item-charge {
+.side-block h3 {
+  margin: 0 0 .6rem;
+  color: var(--text-bright);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: .4rem;
+}
+.qty-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.qty-list li {
   display: flex;
   align-items: center;
-  gap: 5px;
-  color: var(--orange);
-  font-size: 11px;
-  margin-top: 2px;
+  gap: .6rem;
+  padding: 3px 0;
+  font-size: 13px;
 }
-.slot-item-charge img { width: 16px; height: 16px; }
-.slot-item-qty {
-  color: var(--text-dim);
-  font-size: 11px;
-  margin-top: 2px;
-}
+.qty-list img { width: 28px; height: 28px; flex-shrink: 0; }
+.qty-name { flex: 1; color: var(--text-bright); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qty-count { color: var(--orange); font-size: 12px; }
 
-.stats-placeholder { font-size: 12px; line-height: 1.5; }
+.stats-placeholder p { margin: 0; font-size: 12px; line-height: 1.5; }

@@ -1,5 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ fit.name }} — {{ fit.ship_type_name }}{% endblock %}
+
+{%- macro slot_cell(item, slot_type) -%}
+  {%- if item -%}
+    <div class="slot slot-{{ slot_type }} filled"
+         title="{{ item.name }}{% if item.charge_name %} · loaded {{ item.charge_name }}{% endif %}"
+         data-name="{{ item.name }}"
+         data-charge="{{ item.charge_name or '' }}">
+      <img src="https://images.evetech.net/types/{{ item.type_id }}/icon?size=64" alt="">
+      {%- if item.charge_type_id -%}
+      <span class="charge-badge" title="{{ item.charge_name }}">
+        <img src="https://images.evetech.net/types/{{ item.charge_type_id }}/icon?size=32" alt="">
+      </span>
+      {%- endif -%}
+    </div>
+  {%- else -%}
+    <div class="slot slot-{{ slot_type }} empty"></div>
+  {%- endif -%}
+{%- endmacro -%}
+
 {% block content %}
 <div class="page-head">
   <div>
@@ -12,7 +31,8 @@
   <div class="actions">
     <a href="/" class="back-link">← Library</a>
     {% if can_edit %}
-    <form method="POST" action="/fit/{{ row.id }}/delete" onsubmit="return confirm('Delete this fit?')" style="display:inline">
+    <form method="POST" action="/fit/{{ row.id }}/delete"
+          onsubmit="return confirm('Delete this fit?')" style="display:inline">
       <button type="submit" class="btn-danger">Delete</button>
     </form>
     {% endif %}
@@ -20,58 +40,107 @@
 </div>
 
 <div class="fit-layout">
-  <div class="fit-ship">
-    <img src="https://images.evetech.net/types/{{ row.ship_type_id }}/render?size=512"
-         alt="{{ fit.ship_type_name }}">
-    <div class="fit-hp-summary muted">
-      Layout: {{ layout.high }}H · {{ layout.med }}M · {{ layout.low }}L
-      · {{ layout.rig }} rig{% if layout.subsystem %} · {{ layout.subsystem }} sub{% endif %}
-      · {{ layout.turret_hardpoints }} turret / {{ layout.launcher_hardpoints }} launcher
-    </div>
-  </div>
 
-  <div class="fit-slots">
-    {% macro slot_group(label, items, expected) -%}
-    {% if items or expected %}
-    <div class="slot-group">
-      <div class="slot-header">{{ label }} <span class="muted">({{ items|length }}{% if expected %}/{{ expected }}{% endif %})</span></div>
-      <div class="slot-items">
-        {% for it in items %}
-        <div class="slot-item" title="{{ it.name }}{% if it.charge_name %} · loaded {{ it.charge_name }}{% endif %}">
-          <img src="https://images.evetech.net/types/{{ it.type_id }}/icon?size=64" alt="">
-          <div class="slot-item-body">
-            <div class="slot-item-name">{{ it.name }}</div>
-            {% if it.charge_name %}
-            <div class="slot-item-charge">
-              <img src="https://images.evetech.net/types/{{ it.charge_type_id }}/icon?size=32" alt="">
-              {{ it.charge_name }}
-            </div>
-            {% endif %}
-            {% if it.quantity and it.quantity > 1 %}
-            <div class="slot-item-qty">× {{ it.quantity }}</div>
-            {% endif %}
-          </div>
-        </div>
+  <!-- IN-GAME STYLE FITTING FRAME -->
+  <div class="fit-frame">
+    <div class="fit-hover-name" id="hover-name">&nbsp;</div>
+
+    {% if layout.subsystem %}
+    <div class="slot-row slot-row-sub">
+      {% for i in range(layout.subsystem) %}
+        {{ slot_cell(fit.subsystem[i] if i < fit.subsystem|length else None, 'sub') }}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="slot-row slot-row-high">
+      {% for i in range(layout.high) %}
+        {{ slot_cell(fit.high[i] if i < fit.high|length else None, 'high') }}
+      {% endfor %}
+    </div>
+
+    <div class="fit-mid">
+      <div class="slot-col slot-col-low">
+        {% for i in range(layout.low) %}
+          {{ slot_cell(fit.low[i] if i < fit.low|length else None, 'low') }}
+        {% endfor %}
+      </div>
+
+      <div class="ship-render">
+        <img src="https://images.evetech.net/types/{{ row.ship_type_id }}/render?size=512"
+             alt="{{ fit.ship_type_name }}">
+      </div>
+
+      <div class="slot-col slot-col-med">
+        {% for i in range(layout.med) %}
+          {{ slot_cell(fit.med[i] if i < fit.med|length else None, 'med') }}
         {% endfor %}
       </div>
     </div>
-    {% endif %}
-    {%- endmacro %}
 
-    {{ slot_group('High slots',   fit.high,      layout.high) }}
-    {{ slot_group('Med slots',    fit.med,       layout.med) }}
-    {{ slot_group('Low slots',    fit.low,       layout.low) }}
-    {{ slot_group('Rigs',         fit.rig,       layout.rig) }}
-    {% if layout.subsystem %}{{ slot_group('Subsystems', fit.subsystem, layout.subsystem) }}{% endif %}
-    {{ slot_group('Drones',       fit.drones,    None) }}
-    {{ slot_group('Cargo',        fit.cargo,     None) }}
-  </div>
+    <div class="slot-row slot-row-rig">
+      {% for i in range(layout.rig) %}
+        {{ slot_cell(fit.rig[i] if i < fit.rig|length else None, 'rig') }}
+      {% endfor %}
+    </div>
 
-  <div class="fit-stats card">
-    <div class="stats-placeholder muted">
-      Pyfa-level stats land in phase 5 — this panel will show EHP, DPS breakdown,
-      cap stable, speed, sig, and targeting once the eos engine is wired.
+    <div class="fit-hardpoint-line">
+      <span title="Turret hardpoints">⚔ {{ layout.turret_hardpoints }}</span>
+      <span title="Launcher hardpoints">🚀 {{ layout.launcher_hardpoints }}</span>
     </div>
   </div>
+
+  <!-- SIDEBAR: DRONES / CARGO / STATS -->
+  <aside class="fit-side">
+    {% if fit.drones %}
+    <section class="side-block">
+      <h3>Drone bay</h3>
+      <ul class="qty-list">
+        {% for d in fit.drones %}
+        <li>
+          <img src="https://images.evetech.net/types/{{ d.type_id }}/icon?size=32" alt="">
+          <span class="qty-name">{{ d.name }}</span>
+          <span class="qty-count">× {{ d.quantity }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if fit.cargo %}
+    <section class="side-block">
+      <h3>Cargo</h3>
+      <ul class="qty-list">
+        {% for c in fit.cargo %}
+        <li>
+          <img src="https://images.evetech.net/types/{{ c.type_id }}/icon?size=32" alt="">
+          <span class="qty-name">{{ c.name }}</span>
+          <span class="qty-count">× {{ c.quantity }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <section class="side-block stats-placeholder">
+      <h3>Stats</h3>
+      <p class="muted">Pyfa-level stats (EHP, DPS, cap, speed, sig, targeting) land in phase 5.</p>
+    </section>
+  </aside>
 </div>
+
+<script>
+  // Show hovered module name in the header of the fit frame
+  const nameEl = document.getElementById('hover-name');
+  const slots = document.querySelectorAll('.fit-frame .slot.filled');
+  const defaultTxt = " ";
+  slots.forEach(s => {
+    s.addEventListener('mouseenter', () => {
+      const n = s.dataset.name || '';
+      const c = s.dataset.charge || '';
+      nameEl.textContent = c ? `${n}  ·  ${c}` : n;
+    });
+    s.addEventListener('mouseleave', () => { nameEl.textContent = defaultTxt; });
+  });
+</script>
 {% endblock %}
