@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -7,6 +7,19 @@ from . import config, db, sso
 from .routes import pages
 
 app = FastAPI(title="WDS Fittings", docs_url=None, redoc_url=None)
+
+# Cache-buster: mtime of the CSS file, used as ?v= on static links so
+# Cloudflare's 4h edge cache doesn't strand deployed style updates.
+try:
+    _CSS_MTIME = int((config.STATIC_DIR / "style.css").stat().st_mtime)
+except OSError:
+    _CSS_MTIME = 0
+
+
+@app.middleware("http")
+async def inject_static_version(request: Request, call_next):
+    request.state.static_version = str(_CSS_MTIME)
+    return await call_next(request)
 
 if not config.SESSION_SECRET:
     raise RuntimeError("SESSION_SECRET is required (generate one with: python -c 'import secrets;print(secrets.token_hex(32))')")
