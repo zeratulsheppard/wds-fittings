@@ -239,13 +239,13 @@ code {
   .fit-layout { grid-template-columns: 1fr; }
 }
 
-/* --- Ship column --- */
-.fit-ship {
+/* --- Ship column (fit view) --- */
+.fit-hero {
   display: flex;
   flex-direction: column;
   gap: .8rem;
 }
-.fit-ship img {
+.fit-hero img {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
@@ -301,9 +301,18 @@ code {
   letter-spacing: .12em;
   color: var(--text-dim);
   text-align: right;
-  padding-right: 6px;
+  padding-right: 8px;
   border-right: 2px solid var(--border);
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.row-label svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 .row-cells {
   display: flex;

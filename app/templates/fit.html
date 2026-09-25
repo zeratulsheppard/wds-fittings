@@ -28,9 +28,27 @@
   </div>
 {%- endmacro -%}
 
-{%- macro row(label, key, items, count) -%}
+{%- macro slot_icon(key) -%}
+  {%- if key == 'high' -%}
+    <svg viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,2.5 14,13 2,13" fill="currentColor"/></svg>
+  {%- elif key == 'med' -%}
+    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="6" width="12" height="4" rx="1" fill="currentColor"/></svg>
+  {%- elif key == 'low' -%}
+    <svg viewBox="0 0 16 16" aria-hidden="true"><polygon points="8,13.5 2,3 14,3" fill="currentColor"/></svg>
+  {%- elif key == 'rig' -%}
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2 L14 5 L10 9 L11 10 L9 12 L4 7 L6 5 L7 6 L11 2 Z" fill="currentColor"/></svg>
+  {%- elif key == 'sub' -%}
+    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="6" y="6" width="4" height="4" fill="currentColor"/></svg>
+  {%- elif key == 'drone' -%}
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 L14 8 L8 14 L2 8 Z" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/></svg>
+  {%- elif key == 'cargo' -%}
+    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="4" width="12" height="10" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1.5"/></svg>
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro fit_row(label, key, items, count) -%}
 <div class="fit-row row-{{ key }}">
-  <div class="row-label">{{ label }}</div>
+  <div class="row-label">{{ slot_icon(key) }} {{ label }}</div>
   <div class="row-cells">
     {% for i in range(count) %}
       {{ slot_cell(items[i] if i < items|length else None) }}
@@ -59,10 +77,19 @@
   </div>
 </div>
 
+{# For T3s the ship SDE reports 0 high/med/low (subsystems add them dynamically)
+   and 5 subs (stale — CCP dropped Electronic sub). Use max(layout, actual) for
+   h/m/l/rig and just the fitted count for subs. #}
+{% set high_ct = [layout.high, fit.high|length]|max %}
+{% set med_ct  = [layout.med,  fit.med|length]|max %}
+{% set low_ct  = [layout.low,  fit.low|length]|max %}
+{% set rig_ct  = [layout.rig,  fit.rig|length]|max %}
+{% set sub_ct  = fit.subsystem|length %}
+
 <div class="fit-layout">
 
   <!-- Ship column -->
-  <div class="fit-ship">
+  <div class="fit-hero">
     <img src="https://images.evetech.net/types/{{ row.ship_type_id }}/render?size=512"
          alt="{{ fit.ship_type_name }}">
     <div class="ship-meta">
@@ -73,7 +100,7 @@
       <div class="meta-row">
         <span class="meta-label">Layout</span>
         <span class="meta-val">
-          {{ layout.high }}H / {{ layout.med }}M / {{ layout.low }}L / {{ layout.rig }}R{% if layout.subsystem %} / {{ layout.subsystem }}S{% endif %}
+          {{ high_ct }}H / {{ med_ct }}M / {{ low_ct }}L / {{ rig_ct }}R{% if sub_ct %} / {{ sub_ct }}S{% endif %}
         </span>
       </div>
     </div>
@@ -83,15 +110,15 @@
   <div class="fit-table">
     <div class="hover-name" id="hover-name">&nbsp;</div>
 
-    {% if layout.subsystem %}{{ row('SUB',  'sub',  fit.subsystem, layout.subsystem) }}{% endif %}
-    {{ row('HIGH', 'high', fit.high, layout.high) }}
-    {{ row('MID',  'med',  fit.med,  layout.med) }}
-    {{ row('LOW',  'low',  fit.low,  layout.low) }}
-    {{ row('RIG',  'rig',  fit.rig,  layout.rig) }}
+    {% if sub_ct %}{{ fit_row('SUB',  'sub',  fit.subsystem, sub_ct) }}{% endif %}
+    {{ fit_row('HIGH', 'high', fit.high, high_ct) }}
+    {{ fit_row('MID',  'med',  fit.med,  med_ct) }}
+    {{ fit_row('LOW',  'low',  fit.low,  low_ct) }}
+    {{ fit_row('RIG',  'rig',  fit.rig,  rig_ct) }}
 
     {% if fit.drones %}
     <div class="fit-row row-drone">
-      <div class="row-label">DRONE</div>
+      <div class="row-label">{{ slot_icon('drone') }} DRONE</div>
       <div class="row-cells">
         {% for d in fit.drones %}{{ qty_cell(d) }}{% endfor %}
       </div>
@@ -100,7 +127,7 @@
 
     {% if fit.cargo %}
     <div class="fit-row row-cargo">
-      <div class="row-label">CARGO</div>
+      <div class="row-label">{{ slot_icon('cargo') }} CARGO</div>
       <div class="row-cells">
         {% for c in fit.cargo %}{{ qty_cell(c) }}{% endfor %}
       </div>
