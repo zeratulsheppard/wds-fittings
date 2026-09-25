@@ -265,6 +265,123 @@ async def fit_set_tags(fit_id: int, request: Request, user: User = Depends(requi
     return JSONResponse({"tags": tags})
 
 
+def _require_edit(row, user: User) -> None:
+    if row["owner_id"] != user.character_id and not user.is_director:
+        raise HTTPException(403, "Not your fit")
+
+
+@router.get("/fit/{fit_id}/edit", response_class=HTMLResponse)
+async def fit_edit_page(fit_id: int, request: Request, user: User = Depends(require_user)):
+    row = _load_fit_row(fit_id)
+    if row is None:
+        raise HTTPException(404, "Fit not found")
+    _require_edit(row, user)
+    return templates.TemplateResponse(
+        request, "edit.html",
+        {"user": user, "row": dict(row), "error": None},
+    )
+
+
+@router.post("/fit/{fit_id}/edit")
+async def fit_edit_submit(
+    fit_id: int,
+    request: Request,
+    user: User = Depends(require_user),
+    name: str = Form(...),
+    description: str = Form(""),
+    fmt: Optional[str] = Form(None),
+    text: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+):
+    row = _load_fit_row(fit_id)
+    if row is None:
+        raise HTTPException(404, "Fit not found")
+    _require_edit(row, user)
+
+    name = (name or "").strip()[:120]
+    description = (description or "").strip()[:2000]
+    if not name:
+        return templates.TemplateResponse(
+            request, "edit.html",
+            {"user": user, "row": dict(row), "error": "Name is required"},
+            status_code=400,
+        )
+
+    new_fit_json = None
+    new_ship_type_id = None
+    new_ship_type_name = None
+    new_ship_group_id = None
+    new_ship_group_name = None
+
+    try:
+        parsed: Optional[Fit] = None
+        if fmt == "eft" and text:
+            parsed = parse_eft(text)
+        elif fmt == "dna" and text:
+            parsed = parse_dna(text)
+        elif fmt == "killmail" and text:
+            parsed = parse_killmail(text)
+        elif fmt == "xml" and file is not None:
+            payload = await file.read()
+            fits = parse_pyfa_xml(payload)
+            if not fits:
+                raise ParseError("XML contained no fittings")
+            parsed = fits[0]
+
+        if parsed is not None:
+            # Preserve the user-entered name/description over anything the paste carried.
+            parsed.name = name
+            parsed.description = description
+            new_fit_json = json.dumps(parsed.to_dict())
+            new_ship_type_id = parsed.ship_type_id
+            new_ship_type_name = parsed.ship_type_name
+            ship_info = sde.get_type(parsed.ship_type_id)
+            new_ship_group_id = ship_info.group_id if ship_info else 0
+            new_ship_group_name = ship_info.group_name if ship_info else ""
+    except ParseError as exc:
+        return templates.TemplateResponse(
+            request, "edit.html",
+            {"user": user, "row": dict(row), "error": str(exc)},
+            status_code=400,
+        )
+
+    now = int(time.time())
+    with db.connect() as conn:
+        if new_fit_json is not None:
+            conn.execute(
+                """
+                UPDATE fittings
+                SET name = ?, description = ?, fit_json = ?,
+                    ship_type_id = ?, ship_type_name = ?,
+                    ship_group_id = ?, ship_group_name = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    name, description, new_fit_json,
+                    new_ship_type_id, new_ship_type_name,
+                    new_ship_group_id, new_ship_group_name,
+                    now, fit_id,
+                ),
+            )
+        else:
+            # Rename / description only — also refresh the stored fit_json name
+            # so the fit view header stays in sync with the DB name.
+            try:
+                fit_data = json.loads(row["fit_json"])
+                fit_data["name"] = name
+                fit_data["description"] = description
+                embedded_json = json.dumps(fit_data)
+            except (json.JSONDecodeError, TypeError):
+                embedded_json = row["fit_json"]
+            conn.execute(
+                "UPDATE fittings SET name = ?, description = ?, fit_json = ?, updated_at = ? WHERE id = ?",
+                (name, description, embedded_json, now, fit_id),
+            )
+
+    return RedirectResponse(f"/fit/{fit_id}", status_code=303)
+
+
 @router.post("/fit/{fit_id}/delete")
 async def fit_delete(fit_id: int, user: User = Depends(require_user)):
     row = _load_fit_row(fit_id)

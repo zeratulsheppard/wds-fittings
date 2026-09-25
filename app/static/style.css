@@ -542,6 +542,67 @@ code {
   margin-left: 3px;
 }
 
+/* --- Fit description block --- */
+.fit-description {
+  background: var(--surface);
+  border-left: 2px solid var(--orange);
+  padding: .7rem 1rem;
+  margin: -.4rem 0 1rem;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* --- Edit page --- */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 900px;
+}
+.edit-basics { display: flex; flex-direction: column; gap: .9rem; }
+.edit-label { display: flex; flex-direction: column; gap: .3rem; }
+.edit-label span {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.edit-label input[type=text],
+.edit-label textarea {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  padding: .5rem .7rem;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+}
+.edit-label input:focus,
+.edit-label textarea:focus { outline: none; border-color: var(--orange); }
+.edit-label textarea { resize: vertical; min-height: 72px; }
+
+.edit-body-head { margin-bottom: .8rem; }
+.edit-body-head h3 {
+  margin: 0 0 .3rem;
+  color: var(--text-bright);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.edit-body-head p { margin: 0; font-size: 12px; }
+
+.edit-actions {
+  display: flex;
+  gap: .6rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+.edit-actions .btn-secondary { padding: .45rem 1.1rem; font-size: 13px; }
+
 /* --- Sidebar --- */
 .fit-side { display: flex; flex-direction: column; gap: 1rem; }
 .side-block {

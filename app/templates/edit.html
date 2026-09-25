@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ row.name }} — WDS Fittings{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Edit fit</h1>
+    <div class="fit-subtitle">
+      {{ row.ship_type_name }}
+      {% if row.ship_group_name %}<span class="muted">· {{ row.ship_group_name }}</span>{% endif %}
+    </div>
+  </div>
+  <a href="/fit/{{ row.id }}" class="back-link">← Back to fit</a>
+</div>
+
+{% if error %}<div class="error-banner">{{ error }}</div>{% endif %}
+
+<form method="POST" action="/fit/{{ row.id }}/edit" enctype="multipart/form-data" class="edit-form">
+  <div class="card edit-basics">
+    <label class="edit-label">
+      <span>Name</span>
+      <input type="text" name="name" value="{{ row.name }}" maxlength="120" required>
+    </label>
+    <label class="edit-label">
+      <span>Description <em class="muted">(optional)</em></span>
+      <textarea name="description" rows="4" maxlength="2000">{{ row.description }}</textarea>
+    </label>
+  </div>
+
+  <div class="card edit-body">
+    <div class="edit-body-head">
+      <h3>Replace fit body <em class="muted">(optional)</em></h3>
+      <p class="muted">Leave everything below blank to only update the name and description. Any paste here fully replaces the fit's ship + modules.</p>
+    </div>
+
+    <div class="import-tabs" id="tabs">
+      <button type="button" class="tab active" data-tab="skip">Keep current</button>
+      <button type="button" class="tab" data-tab="eft">EFT text</button>
+      <button type="button" class="tab" data-tab="dna">DNA / link</button>
+      <button type="button" class="tab" data-tab="xml">pyfa XML</button>
+      <button type="button" class="tab" data-tab="killmail">Killmail JSON</button>
+    </div>
+
+    <div class="import-panel" data-panel="skip">
+      <p class="muted">Current fit body will be preserved.</p>
+      <input type="hidden" name="fmt" value="" id="fmt-value">
+    </div>
+
+    <div class="import-panel hidden" data-panel="eft">
+      <textarea name="text-eft" rows="14" placeholder="[Raven, ...]"></textarea>
+    </div>
+    <div class="import-panel hidden" data-panel="dna">
+      <textarea name="text-dna" rows="6" placeholder="638:2048;1:..."></textarea>
+    </div>
+    <div class="import-panel hidden" data-panel="xml">
+      <input type="file" name="file" accept=".xml">
+    </div>
+    <div class="import-panel hidden" data-panel="killmail">
+      <textarea name="text-killmail" rows="12" placeholder='{"killmail_id":..., "victim":{"ship_type_id":..., "items":[...]}}'></textarea>
+    </div>
+
+    <input type="hidden" name="text" id="text-value">
+  </div>
+
+  <div class="form-actions edit-actions">
+    <a href="/fit/{{ row.id }}" class="btn-secondary">Cancel</a>
+    <button type="submit" class="btn-primary">Save changes</button>
+  </div>
+</form>
+
+<script>
+  const tabs = document.querySelectorAll('#tabs .tab');
+  const panels = document.querySelectorAll('.import-panel');
+  const fmtField = document.getElementById('fmt-value');
+  const textField = document.getElementById('text-value');
+
+  function pickActive() {
+    const active = document.querySelector('#tabs .tab.active').dataset.tab;
+    if (active === 'skip') {
+      fmtField.value = '';
+      textField.value = '';
+    } else {
+      fmtField.value = active;
+      const ta = document.querySelector(`.import-panel[data-panel="${active}"] textarea`);
+      textField.value = ta ? ta.value : '';
+    }
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== t.dataset.tab));
+    pickActive();
+  }));
+
+  document.querySelector('form.edit-form').addEventListener('submit', pickActive);
+</script>
+{% endblock %}

@@ -59,6 +59,7 @@
   <div class="actions">
     <a href="/" class="back-link">← Library</a>
     {% if can_edit %}
+    <a href="/fit/{{ row.id }}/edit" class="btn-secondary">Edit</a>
     <form method="POST" action="/fit/{{ row.id }}/delete"
           onsubmit="return confirm('Delete this fit?')" style="display:inline">
       <button type="submit" class="btn-danger">Delete</button>
@@ -66,6 +67,10 @@
     {% endif %}
   </div>
 </div>
+
+{% if fit.description %}
+<div class="fit-description">{{ fit.description }}</div>
+{% endif %}
 
 <div class="tag-editor" data-fit-id="{{ row.id }}" data-can-edit="{{ '1' if can_edit else '0' }}">
   <div class="tag-list" id="tag-list">
