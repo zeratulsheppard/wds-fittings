@@ -23,7 +23,7 @@ DEV_CHARACTER_TITLES = os.getenv("DEV_CHARACTER_TITLES", "")
 SDE_SQLITE_PATH = BASE_DIR / os.getenv("SDE_SQLITE_PATH", "data/sde/sqlite-latest.sqlite")
 SDE_DOWNLOAD_URL = os.getenv(
     "SDE_DOWNLOAD_URL",
-    "https://www.fuzzwork.co.uk/dump/sqlite-latest.sqlite.bz2",
+    "https://www.fuzzwork.co.uk/dump/latest-sqlite.db.gz",
 )
 
 APP_DB_PATH = BASE_DIR / os.getenv("APP_DB_PATH", "data/fittings.db")
