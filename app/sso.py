@@ -29,12 +29,13 @@ TOKEN_URL = "https://login.eveonline.com/v2/oauth/token"
 JWKS_URL = "https://login.eveonline.com/oauth/jwks"
 ESI = "https://esi.evetech.net/latest"
 
-# Default scope set — matches what we told the EVE dev app to request.
+# Default scope set. Note: ESI has no corp-level fittings endpoint — only
+# personal `/characters/{id}/fittings/`. Corp-fit sharing is implemented by
+# reading Fitting Managers' personal fits (opt-in) and tagging them.
 DEFAULT_SCOPES = [
     "publicData",
     "esi-characters.read_corporation_roles.v1",
     "esi-characters.read_titles.v1",
-    "esi-corporations.read_fittings.v1",
     "esi-fittings.read_fittings.v1",
     "esi-fittings.write_fittings.v1",
 ]

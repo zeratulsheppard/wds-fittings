@@ -32,5 +32,5 @@ See [`deploy/README.md`](deploy/README.md).
 - [ ] Phase 3 — Import parsers (EFT, DNA, pyfa XML, killmail)
 - [ ] Phase 4 — Fit view with ship render + slot layout
 - [ ] Phase 5 — Vendor pyfa `eos` for pyfa-level stats
-- [ ] Phase 6 — ESI corp-fittings sync (`esi-corporations.read_fittings.v1`)
+- [ ] Phase 6 — Corp-shared fits: opt-in read of Fitting Managers' personal fits (`esi-fittings.read_fittings.v1`)
 - [ ] Phase 7 — Search, tags/doctrines, edit UI
