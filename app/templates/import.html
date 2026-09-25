@@ -6,8 +6,60 @@
   <a href="/" class="back-link">← Back to library</a>
 </div>
 
-<div class="import-placeholder card">
-  <p>Import parsers (EFT / DNA / pyfa XML / killmail) land in phase 3.</p>
-  <p class="muted">Corp fittings sync via ESI will appear here as a separate section.</p>
+{% if error %}
+<div class="error-banner">{{ error }}</div>
+{% endif %}
+
+<div class="import-tabs" id="tabs">
+  <button class="tab active" data-tab="eft">EFT text</button>
+  <button class="tab" data-tab="dna">DNA / in-game link</button>
+  <button class="tab" data-tab="xml">pyfa XML</button>
+  <button class="tab" data-tab="killmail">Killmail JSON</button>
 </div>
+
+<div class="import-panel card" data-panel="eft">
+  <form method="POST" action="/import">
+    <input type="hidden" name="fmt" value="eft">
+    <p class="muted">Paste an EFT block starting with <code>[Ship, Name]</code>.</p>
+    <textarea name="text" rows="16" placeholder="[Raven, My Fit]&#10;Damage Control II&#10;...&#10;"></textarea>
+    <div class="form-actions"><button type="submit" class="btn-primary">Import EFT</button></div>
+  </form>
+</div>
+
+<div class="import-panel card hidden" data-panel="dna">
+  <form method="POST" action="/import">
+    <input type="hidden" name="fmt" value="dna">
+    <p class="muted">Paste a raw DNA string, <code>fitting:...</code>, or the full <code>&lt;url=fitting:...&gt;Name&lt;/url&gt;</code> chat link.</p>
+    <textarea name="text" rows="6" placeholder="638:2048;1:519;5:3436;1::"></textarea>
+    <div class="form-actions"><button type="submit" class="btn-primary">Import DNA</button></div>
+  </form>
+</div>
+
+<div class="import-panel card hidden" data-panel="xml">
+  <form method="POST" action="/import" enctype="multipart/form-data">
+    <input type="hidden" name="fmt" value="xml">
+    <p class="muted">Upload a pyfa XML export. The file may contain many fittings — all are imported.</p>
+    <input type="file" name="file" accept=".xml" required>
+    <div class="form-actions"><button type="submit" class="btn-primary">Import XML</button></div>
+  </form>
+</div>
+
+<div class="import-panel card hidden" data-panel="killmail">
+  <form method="POST" action="/import">
+    <input type="hidden" name="fmt" value="killmail">
+    <p class="muted">Paste an ESI killmail JSON body. zKillboard wrapper (<code>{"killmail":...}</code>) is accepted.</p>
+    <textarea name="text" rows="14" placeholder='{"killmail_id":..., "victim":{"ship_type_id":..., "items":[...]}}'></textarea>
+    <div class="form-actions"><button type="submit" class="btn-primary">Import killmail</button></div>
+  </form>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('#tabs .tab');
+  const panels = document.querySelectorAll('.import-panel');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    panels.forEach(p => p.classList.toggle('hidden', p.dataset.panel !== t.dataset.tab));
+  }));
+</script>
 {% endblock %}
