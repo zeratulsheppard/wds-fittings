@@ -1,0 +1,18 @@
+[Unit]
+Description=WDS Fittings library
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/wds-fittings
+EnvironmentFile=/root/secrets/wds-fittings.env
+ExecStart=/opt/wds-fittings/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 3016
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

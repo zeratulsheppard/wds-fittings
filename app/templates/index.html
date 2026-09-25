@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Fittings — WDS{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">Fittings library</h1>
+  <a href="/import" class="btn-primary">+ Import fit</a>
+</div>
+
+{% if fits %}
+<div class="fit-grid">
+  {% for f in fits %}
+  <a class="fit-card" href="/fit/{{ f.id }}">
+    <img class="fit-render"
+         src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=256"
+         alt="{{ f.ship_type_name }}" loading="lazy">
+    <div class="fit-meta">
+      <div class="fit-name">{{ f.name }}</div>
+      <div class="fit-ship">{{ f.ship_type_name }}</div>
+      <div class="fit-owner">by {{ f.owner_name }}</div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No fittings imported yet.</p>
+  <a href="/import" class="btn-primary">Import your first fit</a>
+</div>
+{% endif %}
+{% endblock %}
