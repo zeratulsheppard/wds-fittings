@@ -127,6 +127,9 @@ main {
 @media (max-width: 700px) {
   .fit-grid { grid-template-columns: 1fr; }
 }
+.fit-card-wrap {
+  position: relative;
+}
 .fit-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -143,6 +146,32 @@ main {
   border-color: var(--orange);
   background: #202020;
   text-decoration: none;
+}
+.fit-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity .12s, color .12s, border-color .12s;
+  z-index: 2;
+}
+.fit-card-wrap:hover .fit-copy { opacity: 1; }
+.fit-copy:hover { color: var(--orange); border-color: var(--orange); }
+.fit-copy.copied {
+  color: #4caf50;
+  border-color: #4caf50;
+  opacity: 1;
 }
 .fit-render {
   width: 84px;
@@ -503,12 +532,57 @@ code {
   vertical-align: middle;
 }
 
+.cat-editor {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: -.4rem 0 .6rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px dashed var(--border);
+  flex-wrap: wrap;
+}
+.cat-editor-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 700;
+}
+.cat-editor select {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  padding: .3rem .6rem;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: inherit;
+  min-width: 220px;
+}
+.cat-editor select:focus { outline: none; border-color: var(--orange); }
+.cat-editor input[type=text] {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  padding: .3rem .6rem;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: inherit;
+}
+.cat-editor input[type=text]:focus { outline: none; border-color: var(--orange); }
+.cat-editor input[type=text].hidden { display: none; }
+.cat-status { font-size: 11px; margin-left: 4px; }
+
+.btn-secondary.copied {
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
 .tag-editor {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: .8rem;
-  margin: -.4rem 0 1rem;
+  margin: 0 0 1rem;
   padding-bottom: .6rem;
   border-bottom: 1px dashed var(--border);
 }

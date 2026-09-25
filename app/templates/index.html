@@ -2,22 +2,30 @@
 {% block title %}Fittings — WDS{% endblock %}
 
 {%- macro fit_card(f) -%}
-<a class="fit-card" href="/fit/{{ f.id }}">
-  <img class="fit-render"
-       src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=128"
-       alt="{{ f.ship_type_name }}" loading="lazy">
-  <div class="fit-meta">
-    <div class="fit-name">
-      {{ f.name }}
-      {% for t in f.tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
+<div class="fit-card-wrap">
+  <a class="fit-card" href="/fit/{{ f.id }}">
+    <img class="fit-render"
+         src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=128"
+         alt="{{ f.ship_type_name }}" loading="lazy">
+    <div class="fit-meta">
+      <div class="fit-name">
+        {{ f.name }}
+        {% for t in f.tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
+      </div>
+      <div class="fit-ship">
+        {{ f.ship_type_name }}{% if f.ship_group_name %}
+        <span class="muted"> · {{ f.ship_group_name }}</span>{% endif %}
+      </div>
+      <div class="fit-owner">by {{ f.owner_name }}</div>
     </div>
-    <div class="fit-ship">
-      {{ f.ship_type_name }}{% if f.ship_group_name %}
-      <span class="muted"> · {{ f.ship_group_name }}</span>{% endif %}
-    </div>
-    <div class="fit-owner">by {{ f.owner_name }}</div>
-  </div>
-</a>
+  </a>
+  <button type="button" class="fit-copy" data-fit="{{ f.id }}" title="Copy EFT to clipboard" aria-label="Copy EFT">
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <rect x="4" y="3" width="9" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <rect x="2" y="1" width="9" height="11" rx="1" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+  </button>
+</div>
 {%- endmacro -%}
 
 {% block content %}
@@ -95,4 +103,25 @@
   {% endif %}
 </div>
 {% endif %}
+
+<script>
+  document.querySelectorAll('.fit-copy').forEach(btn => {
+    btn.addEventListener('click', async ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = btn.dataset.fit;
+      try {
+        const r = await fetch(`/fit/${id}/export.eft`);
+        if (!r.ok) throw new Error(r.status);
+        const text = await r.text();
+        await navigator.clipboard.writeText(text);
+        btn.classList.add('copied');
+        btn.title = 'Copied!';
+        setTimeout(() => { btn.classList.remove('copied'); btn.title = 'Copy EFT to clipboard'; }, 1400);
+      } catch (e) {
+        alert('Copy failed: ' + e.message);
+      }
+    });
+  });
+</script>
 {% endblock %}

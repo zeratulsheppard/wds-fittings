@@ -4,7 +4,7 @@ import time
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .. import config, db
@@ -16,6 +16,7 @@ from ..parsers import (
     parse_eft,
     parse_killmail,
     parse_pyfa_xml,
+    to_eft,
 )
 from ..sde import loader as sde
 
@@ -322,8 +323,41 @@ async def fit_view(fit_id: int, request: Request, user: User = Depends(require_u
             "layout": slot_layout,
             "can_edit": can_edit,
             "tags": tags,
+            "categories": _existing_categories() if can_edit else [],
         },
     )
+
+
+@router.get("/fit/{fit_id}/export.eft", response_class=PlainTextResponse)
+async def fit_export_eft(fit_id: int, user: User = Depends(require_user)):
+    row = _load_fit_row(fit_id)
+    if row is None:
+        raise HTTPException(404, "Fit not found")
+    fit_data = json.loads(row["fit_json"])
+    text = to_eft(fit_data, row["ship_type_name"])
+    return PlainTextResponse(
+        content=text,
+        headers={"Content-Disposition": f'inline; filename="{row["ship_type_name"]} - {row["name"]}.eft.txt"'},
+    )
+
+
+@router.post("/fit/{fit_id}/category")
+async def fit_set_category(fit_id: int, request: Request, user: User = Depends(require_user)):
+    row = _load_fit_row(fit_id)
+    if row is None:
+        raise HTTPException(404, "Fit not found")
+    _require_edit(row, user)
+
+    payload = await request.json()
+    incoming = payload.get("category", "")
+    category = _normalise_category(str(incoming or ""))
+
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE fittings SET category = ?, updated_at = ? WHERE id = ?",
+            (category, int(time.time()), fit_id),
+        )
+    return JSONResponse({"category": category})
 
 
 @router.post("/fit/{fit_id}/tags")

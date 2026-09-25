@@ -51,7 +51,11 @@
       {% for t in tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
     </h1>
     <div class="fit-subtitle">
-      {% if row.category %}<a href="/?category={{ row.category|urlencode }}" class="cat-badge">{{ row.category }}</a>{% endif %}
+      {# Read-only viewers see the category as a badge in the subtitle.
+         Editors see + control it via the inline picker below the header. #}
+      {% if row.category and not can_edit %}
+      <a href="/?category={{ row.category|urlencode }}" class="cat-badge">{{ row.category }}</a>
+      {% endif %}
       <a href="https://everef.net/type/{{ row.ship_type_id }}" target="_blank" rel="noopener">{{ fit.ship_type_name }}</a>
       {% if row.ship_group_name %}<span class="muted">· {{ row.ship_group_name }}</span>{% endif %}
       · by {{ row.owner_name }}
@@ -59,6 +63,7 @@
   </div>
   <div class="actions">
     <a href="/" class="back-link">← Library</a>
+    <button type="button" class="btn-secondary" id="copy-eft" data-fit="{{ row.id }}">Copy EFT</button>
     {% if can_edit %}
     <a href="/fit/{{ row.id }}/edit" class="btn-secondary">Edit</a>
     <form method="POST" action="/fit/{{ row.id }}/delete"
@@ -71,6 +76,24 @@
 
 {% if fit.description %}
 <div class="fit-description">{{ fit.description }}</div>
+{% endif %}
+
+{% if can_edit %}
+<div class="cat-editor" data-fit-id="{{ row.id }}">
+  <span class="cat-editor-label">Category:</span>
+  <select id="cat-select">
+    <option value="">— None —</option>
+    {% for c in categories %}
+    <option value="{{ c }}" {% if row.category == c %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+    {% if row.category and row.category not in categories %}
+    <option value="{{ row.category }}" selected>{{ row.category }}</option>
+    {% endif %}
+    <option value="__NEW__">+ New category…</option>
+  </select>
+  <input type="text" id="cat-new" class="hidden" maxlength="48" placeholder="New category name">
+  <span id="cat-status" class="muted cat-status"></span>
+</div>
 {% endif %}
 
 <div class="tag-editor" data-fit-id="{{ row.id }}" data-can-edit="{{ '1' if can_edit else '0' }}">
@@ -159,6 +182,83 @@
     });
     s.addEventListener('mouseleave', () => { nameEl.textContent = ' '; });
   });
+
+  // Copy EFT button in the header
+  (function () {
+    const btn = document.getElementById('copy-eft');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.fit;
+      const original = btn.textContent;
+      try {
+        const r = await fetch(`/fit/${id}/export.eft`);
+        if (!r.ok) throw new Error(r.status);
+        const text = await r.text();
+        await navigator.clipboard.writeText(text);
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1400);
+      } catch (e) {
+        alert('Copy failed: ' + e.message);
+      }
+    });
+  })();
+
+  // Inline category picker
+  (function () {
+    const editor = document.querySelector('.cat-editor');
+    if (!editor) return;
+    const fitId = editor.dataset.fitId;
+    const sel   = document.getElementById('cat-select');
+    const input = document.getElementById('cat-new');
+    const status = document.getElementById('cat-status');
+
+    function refreshVisibility() {
+      input.classList.toggle('hidden', sel.value !== '__NEW__');
+      if (sel.value === '__NEW__') input.focus();
+    }
+
+    async function save(cat) {
+      const r = await fetch(`/fit/${fitId}/category`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: cat })
+      });
+      if (!r.ok) { status.textContent = 'Save failed'; return null; }
+      const data = await r.json();
+      status.textContent = 'Saved';
+      setTimeout(() => { status.textContent = ''; }, 1400);
+      // Ensure the saved category is present in the select
+      if (data.category && !Array.from(sel.options).some(o => o.value === data.category)) {
+        const opt = document.createElement('option');
+        opt.value = data.category;
+        opt.textContent = data.category;
+        sel.insertBefore(opt, sel.querySelector('option[value="__NEW__"]'));
+      }
+      sel.value = data.category || '';
+      input.value = '';
+      refreshVisibility();
+      return data.category;
+    }
+
+    sel.addEventListener('change', () => {
+      refreshVisibility();
+      if (sel.value !== '__NEW__') save(sel.value);
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const v = input.value.trim();
+        if (v) save(v);
+      }
+    });
+    input.addEventListener('blur', () => {
+      const v = input.value.trim();
+      if (v) save(v);
+    });
+
+    refreshVisibility();
+  })();
 
   // Tag editor
   (function () {
