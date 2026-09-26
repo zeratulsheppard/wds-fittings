@@ -91,7 +91,7 @@ async def index(
 
     sql = (
         "SELECT id, name, category, ship_type_id, ship_type_name, ship_group_id, "
-        "ship_group_name, owner_name, tags, updated_at "
+        "ship_group_name, owner_id, owner_name, tags, updated_at "
         "FROM fittings"
     )
     if where:
@@ -123,6 +123,9 @@ async def index(
     for r in rows:
         d = dict(r)
         d["tags"] = db.load_tags(d["tags"])
+        d["can_edit"] = (
+            d["owner_id"] == user.character_id if "owner_id" in d else False
+        ) or user.can_manage_fits
         fits.append(d)
 
     # Group by category when no explicit narrowing filter is active
@@ -146,6 +149,8 @@ async def index(
             "grouped": grouped,
             "groups": [dict(g) for g in groups],
             "categories": [dict(c) for c in categories],
+            "existing_categories": _existing_categories(),
+            "existing_tags": _existing_tags(),
             "top_tags": top_tags,
             "filters": {
                 "q": q or "", "tag": tag or "", "group": group or 0,

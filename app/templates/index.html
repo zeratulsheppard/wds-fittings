@@ -2,13 +2,18 @@
 {% block title %}Fittings — WDS{% endblock %}
 
 {%- macro fit_card(f) -%}
-<div class="fit-card-wrap">
+<div class="fit-card-wrap"
+     data-fit-id="{{ f.id }}"
+     data-fit-name="{{ f.name|e }}"
+     data-fit-category="{{ f.category|e }}"
+     data-fit-tags="{{ f.tags|join(',') }}">
   <a class="fit-card" href="/fit/{{ f.id }}">
     <img class="fit-render"
          src="https://images.evetech.net/types/{{ f.ship_type_id }}/render?size=128"
          alt="{{ f.ship_type_name }}" loading="lazy">
     <div class="fit-meta">
       <div class="fit-name">
+        {% if f.category %}<span class="cat-badge-inline">{{ f.category }}</span>{% endif %}
         {{ f.name }}
         {% for t in f.tags %}<span class="tag-inline">[{{ t }}]</span>{% endfor %}
       </div>
@@ -19,12 +24,21 @@
       <div class="fit-owner">by {{ f.owner_name }}</div>
     </div>
   </a>
-  <button type="button" class="fit-copy" data-fit="{{ f.id }}" title="Copy EFT to clipboard" aria-label="Copy EFT">
-    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <rect x="4" y="3" width="9" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
-      <rect x="2" y="1" width="9" height="11" rx="1" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/>
-    </svg>
-  </button>
+  <div class="fit-actions-overlay">
+    {% if f.can_edit %}
+    <button type="button" class="fit-quick-edit" data-fit="{{ f.id }}" title="Edit tags &amp; category" aria-label="Edit tags &amp; category">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <path d="M11 2 L14 5 L5 14 L2 14 L2 11 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    {% endif %}
+    <button type="button" class="fit-copy" data-fit="{{ f.id }}" title="Copy EFT to clipboard" aria-label="Copy EFT">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <rect x="4" y="3" width="9" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="2" y="1" width="9" height="11" rx="1" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+    </button>
+  </div>
 </div>
 {%- endmacro -%}
 
@@ -110,7 +124,51 @@
 </div>
 {% endif %}
 
+<!-- Shared quick-edit panel (for library-view tag/category editing) -->
+{% if user.can_manage_fits or fits|selectattr('can_edit')|list %}
+<div class="quick-edit-panel" id="quick-edit" hidden>
+  <div class="qe-head">
+    <div>
+      <span class="qe-eyebrow">Quick edit</span>
+      <div class="qe-title" id="qe-title">—</div>
+    </div>
+    <button type="button" class="qe-close" id="qe-close" aria-label="Close">×</button>
+  </div>
+
+  <div class="qe-block">
+    <label class="qe-label">Category</label>
+    <div class="qe-row">
+      <select id="qe-cat" class="filter-select">
+        <option value="">— No category —</option>
+        {% for c in existing_categories %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+        <option value="__NEW__">+ New category…</option>
+      </select>
+      <input type="text" id="qe-cat-new" class="picker-input hidden" maxlength="48" placeholder="New category">
+    </div>
+  </div>
+
+  <div class="qe-block">
+    <label class="qe-label">Tags <span class="qe-summary" id="qe-tag-summary"></span></label>
+    <div class="tag-picker" id="qe-tag-picker">
+      {% for t in existing_tags %}
+      <button type="button" class="tag-chip picker-chip" data-tag="{{ t }}">[{{ t }}]</button>
+      {% endfor %}
+      {% if not existing_tags %}<span class="muted picker-empty">No tags yet</span>{% endif %}
+    </div>
+    <div class="qe-row">
+      <input type="text" id="qe-tag-new" class="picker-input" maxlength="24" placeholder="+ New tag">
+      <button type="button" id="qe-tag-add" class="btn-secondary">Add</button>
+    </div>
+  </div>
+
+  <div class="qe-status" id="qe-status"></div>
+</div>
+{% endif %}
+
 <script>
+  // Copy EFT from card
   document.querySelectorAll('.fit-copy').forEach(btn => {
     btn.addEventListener('click', async ev => {
       ev.preventDefault();
@@ -129,5 +187,210 @@
       }
     });
   });
+
+  // Quick-edit panel
+  (function () {
+    const panel = document.getElementById('quick-edit');
+    if (!panel) return;
+
+    const qeTitle = document.getElementById('qe-title');
+    const qeCat   = document.getElementById('qe-cat');
+    const qeCatNew = document.getElementById('qe-cat-new');
+    const qeTagPicker = document.getElementById('qe-tag-picker');
+    const qeTagNew = document.getElementById('qe-tag-new');
+    const qeTagAdd = document.getElementById('qe-tag-add');
+    const qeTagSummary = document.getElementById('qe-tag-summary');
+    const qeStatus = document.getElementById('qe-status');
+    const qeClose = document.getElementById('qe-close');
+
+    let currentFit = null;   // id
+    let currentWrap = null;  // DOM node
+
+    const normaliseTag = s => (s || '').toUpperCase()
+      .replace(/[^A-Z0-9 _\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+
+    function selectedTags() {
+      return [...qeTagPicker.querySelectorAll('.picker-chip.selected')].map(el => el.dataset.tag);
+    }
+
+    function refreshTagSummary() {
+      const sel = selectedTags();
+      qeTagSummary.textContent = sel.length ? sel.map(t => '[' + t + ']').join(' ') : '';
+    }
+
+    function refreshCatVisibility() {
+      qeCatNew.classList.toggle('hidden', qeCat.value !== '__NEW__');
+      if (qeCat.value === '__NEW__') qeCatNew.focus();
+    }
+
+    function flash(msg) {
+      qeStatus.textContent = msg;
+      clearTimeout(flash._t);
+      flash._t = setTimeout(() => { qeStatus.textContent = ''; }, 1600);
+    }
+
+    function ensureCatOption(name) {
+      if (!name) return;
+      const exists = [...qeCat.options].some(o => o.value === name);
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        qeCat.insertBefore(opt, qeCat.querySelector('option[value="__NEW__"]'));
+      }
+    }
+
+    function updateCardChips(wrap, category, tags) {
+      const meta = wrap.querySelector('.fit-name');
+      if (!meta) return;
+      // Rebuild the name line: [CAT] + name + [TAG]...
+      const base = wrap.dataset.fitName;
+      const parts = [];
+      if (category) parts.push(`<span class="cat-badge-inline">${category}</span>`);
+      parts.push(base);
+      tags.forEach(t => parts.push(`<span class="tag-inline">[${t}]</span>`));
+      meta.innerHTML = parts.join(' ');
+      wrap.dataset.fitCategory = category;
+      wrap.dataset.fitTags = tags.join(',');
+    }
+
+    async function saveCategory(cat) {
+      const r = await fetch(`/fit/${currentFit}/category`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: cat })
+      });
+      if (!r.ok) { flash('Save failed'); return; }
+      const data = await r.json();
+      ensureCatOption(data.category);
+      qeCat.value = data.category || '';
+      qeCatNew.value = '';
+      refreshCatVisibility();
+      updateCardChips(currentWrap, data.category || '',
+        (currentWrap.dataset.fitTags || '').split(',').filter(Boolean));
+      flash('Saved');
+    }
+
+    async function saveTags(tags) {
+      const r = await fetch(`/fit/${currentFit}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags })
+      });
+      if (!r.ok) { flash('Save failed'); return; }
+      const data = await r.json();
+      // Re-sync picker selection to the server-normalised list
+      qeTagPicker.querySelectorAll('.picker-chip').forEach(c => c.classList.remove('selected'));
+      data.tags.forEach(t => {
+        let chip = qeTagPicker.querySelector(`.picker-chip[data-tag="${t}"]`);
+        if (!chip) {
+          const empty = qeTagPicker.querySelector('.picker-empty');
+          if (empty) empty.remove();
+          chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'tag-chip picker-chip';
+          chip.dataset.tag = t;
+          chip.textContent = '[' + t + ']';
+          qeTagPicker.appendChild(chip);
+        }
+        chip.classList.add('selected');
+      });
+      refreshTagSummary();
+      updateCardChips(currentWrap, currentWrap.dataset.fitCategory || '', data.tags);
+      flash('Saved');
+    }
+
+    function openFor(wrap) {
+      currentFit = wrap.dataset.fitId;
+      currentWrap = wrap;
+
+      qeTitle.textContent = wrap.dataset.fitName || '';
+      qeStatus.textContent = '';
+      qeCatNew.value = '';
+
+      const cat = wrap.dataset.fitCategory || '';
+      ensureCatOption(cat);
+      qeCat.value = cat;
+      refreshCatVisibility();
+
+      const tags = (wrap.dataset.fitTags || '').split(',').filter(Boolean);
+      qeTagPicker.querySelectorAll('.picker-chip').forEach(c => {
+        c.classList.toggle('selected', tags.includes(c.dataset.tag));
+      });
+      // If the fit carries tags that don't exist as chips yet, add them
+      tags.forEach(t => {
+        if (!qeTagPicker.querySelector(`.picker-chip[data-tag="${t}"]`)) {
+          const empty = qeTagPicker.querySelector('.picker-empty');
+          if (empty) empty.remove();
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'tag-chip picker-chip selected';
+          chip.dataset.tag = t;
+          chip.textContent = '[' + t + ']';
+          qeTagPicker.appendChild(chip);
+        }
+      });
+      refreshTagSummary();
+
+      panel.hidden = false;
+      panel.classList.add('open');
+    }
+
+    function close() {
+      panel.classList.remove('open');
+      panel.hidden = true;
+      currentFit = null;
+      currentWrap = null;
+    }
+
+    // Wire card buttons
+    document.querySelectorAll('.fit-quick-edit').forEach(btn => {
+      btn.addEventListener('click', ev => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const wrap = btn.closest('.fit-card-wrap');
+        if (wrap) openFor(wrap);
+      });
+    });
+
+    // Category select changes
+    qeCat.addEventListener('change', () => {
+      refreshCatVisibility();
+      if (qeCat.value !== '__NEW__') saveCategory(qeCat.value);
+    });
+    qeCatNew.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); const v = qeCatNew.value.trim(); if (v) saveCategory(v); }
+    });
+    qeCatNew.addEventListener('blur', () => {
+      const v = qeCatNew.value.trim();
+      if (v) saveCategory(v);
+    });
+
+    // Tag chip toggling
+    qeTagPicker.addEventListener('click', ev => {
+      const chip = ev.target.closest('.picker-chip');
+      if (!chip) return;
+      chip.classList.toggle('selected');
+      saveTags(selectedTags());
+    });
+
+    function addNewTag() {
+      const t = normaliseTag(qeTagNew.value);
+      if (!t) { qeTagNew.value = ''; return; }
+      const current = selectedTags();
+      if (!current.includes(t)) current.push(t);
+      qeTagNew.value = '';
+      saveTags(current);
+    }
+    qeTagAdd.addEventListener('click', addNewTag);
+    qeTagNew.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addNewTag(); }
+    });
+
+    qeClose.addEventListener('click', close);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !panel.hidden) close();
+    });
+  })();
 </script>
 {% endblock %}
