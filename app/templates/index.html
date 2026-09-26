@@ -31,7 +31,9 @@
 {% block content %}
 <div class="page-head">
   <h1 class="page-title">Fittings library</h1>
+  {% if user.can_manage_fits %}
   <a href="/import" class="btn-primary">+ Import fit</a>
+  {% endif %}
 </div>
 
 <form method="GET" action="/" class="filter-bar">
@@ -99,7 +101,11 @@
     <a href="/" class="btn-primary">Clear filters</a>
   {% else %}
     <p>No fittings imported yet.</p>
+    {% if user.can_manage_fits %}
     <a href="/import" class="btn-primary">Import your first fit</a>
+    {% else %}
+    <p class="muted">Only Directors and Fitting Managers can import fits.</p>
+    {% endif %}
   {% endif %}
 </div>
 {% endif %}

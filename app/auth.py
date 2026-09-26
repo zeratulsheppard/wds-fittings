@@ -74,3 +74,10 @@ def require_director(user: User = Depends(require_user)) -> User:
     if not user.is_director:
         raise HTTPException(status_code=403, detail="Directors only")
     return user
+
+
+def require_fits_manager(user: User = Depends(require_user)) -> User:
+    """Directors and Fitting Managers (role or title) can manage the library."""
+    if not user.can_manage_fits:
+        raise HTTPException(status_code=403, detail="Directors and Fitting Managers only")
+    return user

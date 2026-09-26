@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.templating import Jinja2Templates
 
 from .. import config, db
-from ..auth import User, require_user
+from ..auth import User, require_fits_manager, require_user
 from ..parsers import (
     Fit,
     ParseError,
@@ -169,7 +169,7 @@ def _existing_tags() -> List[str]:
 
 
 @router.get("/import", response_class=HTMLResponse)
-async def import_page(request: Request, user: User = Depends(require_user)):
+async def import_page(request: Request, user: User = Depends(require_fits_manager)):
     return templates.TemplateResponse(
         request, "import.html",
         {
@@ -230,7 +230,7 @@ def _store_fit(
 @router.post("/import", response_class=HTMLResponse)
 async def import_submit(
     request: Request,
-    user: User = Depends(require_user),
+    user: User = Depends(require_fits_manager),
     fmt: str = Form(...),
     text: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),

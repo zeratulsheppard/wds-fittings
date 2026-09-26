@@ -19,7 +19,9 @@
       </div>
       <nav class="header-nav">
         <a href="/" class="nav-link">Browse</a>
+        {% if user and user.can_manage_fits %}
         <a href="/import" class="nav-link">Import</a>
+        {% endif %}
       </nav>
       <div class="header-right">
         {% if user %}
